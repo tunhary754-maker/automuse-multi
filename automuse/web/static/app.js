@@ -50,7 +50,7 @@ async function loadStatus() {
       <div class="stat"><div class="num">${s.ffmpeg ? "OK" : "Thiếu"}</div><div class="label">ffmpeg</div></div>`;
     const steps = [];
     if (!s.accounts_ready) steps.push("Thêm tài khoản Muse ở tab <b>Tài khoản Muse</b> (cookie + proxy).");
-    if (!s.elevenlabs_configured) steps.push("Bỏ <code>ELEVENLABS_API_KEY</code> vào file <code>.env</code> rồi khởi động lại server để lồng tiếng thật.");
+    if (!s.elevenlabs_configured) steps.push("Nhập key ElevenLabs ở mục <b>Lồng tiếng</b> bên dưới để lồng tiếng thật.");
     steps.push("Chọn một kịch bản ở tab <b>Kịch bản</b> rồi bấm <b>Tạo video</b> — thử bằng mock trước cũng được.");
     if (s.outputs) steps.push(`Bạn đã có ${s.outputs} video trong tab <b>Kết quả</b>.`);
     $("#next-steps").innerHTML = steps.map((x) => `<li>${x}</li>`).join("");
@@ -255,6 +255,60 @@ async function loadJobs() {
     </li>`).join("") || "<li>Chưa có job nào.</li>";
 }
 
+// ---------------- elevenlabs ----------------
+async function loadElevenLabsCard() {
+  const sel = $("#el-voice-select");
+  const msg = $("#el-msg");
+  try {
+    const s = await api("/api/status");
+    if (!s.elevenlabs_configured) {
+      sel.innerHTML = `<option value="">— nhập key trước —</option>`;
+      return;
+    }
+    const voices = await api("/api/voices");
+    const def = s.elevenlabs_default_voice || "";
+    sel.innerHTML = voices.map((v) => `<option value="${esc(v.voice_id)}" ${v.name === def ? "selected" : ""}>${esc(v.name)}</option>`).join("");
+    if (def) msg.textContent = `Giọng mặc định hiện tại: ${def}.`;
+  } catch (e) {
+    msg.textContent = `Không tải được giọng: ${e.message}`;
+  }
+}
+$("#btn-save-el-key").addEventListener("click", async () => {
+  const msg = $("#el-msg");
+  const key = $("#el-key").value.trim();
+  if (!key) { msg.textContent = "Chưa nhập key."; return; }
+  msg.textContent = "Đang kiểm tra key…";
+  try {
+    const r = await api("/api/elevenlabs/key", { method: "POST", body: JSON.stringify({ key }) });
+    msg.textContent = `Đã lưu key — tìm thấy ${r.voices} giọng.`;
+    $("#el-key").value = "";
+    loadStatus(); loadElevenLabsCard();
+  } catch (e) { msg.textContent = `Lỗi: ${e.message}`; }
+});
+$("#btn-el-set-default").addEventListener("click", async () => {
+  const msg = $("#el-msg");
+  const voice = $("#el-voice-select").value;
+  if (!voice) { msg.textContent = "Chưa chọn giọng (nhập key trước)."; return; }
+  try {
+    const r = await api("/api/voices/default", { method: "POST", body: JSON.stringify({ voice }) });
+    msg.textContent = `Giọng mặc định: ${r.name}.`;
+  } catch (e) { msg.textContent = `Lỗi: ${e.message}`; }
+});
+$("#btn-el-test").addEventListener("click", async () => {
+  const msg = $("#el-msg");
+  const audio = $("#el-test-audio");
+  const voice = $("#el-voice-select").value;
+  if (!voice) { msg.textContent = "Chưa chọn giọng (nhập key trước)."; return; }
+  msg.textContent = "Đang tạo file nghe thử…";
+  try {
+    const r = await api("/api/voices/test", { method: "POST", body: JSON.stringify({ voice }) });
+    audio.src = r.file + "?t=" + Date.now();
+    audio.style.display = "block";
+    audio.play().catch(() => {});
+    msg.textContent = "Bấm play để nghe thử.";
+  } catch (e) { msg.textContent = `Lỗi: ${e.message}`; }
+});
+
 // ---------------- outputs ----------------
 function outputCard(o) {
   const m = o.manifest || {};
@@ -283,5 +337,5 @@ async function loadOutputs() {
 }
 
 // ---------------- init ----------------
-loadStatus(); loadAccounts(); loadScripts(); loadOutputs(); loadJobs();
+loadStatus(); loadAccounts(); loadScripts(); loadOutputs(); loadJobs(); loadElevenLabsCard();
 setInterval(loadStatus, 30000);

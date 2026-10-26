@@ -11,6 +11,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 CONFIG_DIR = REPO_ROOT / "config"
 ACCOUNTS_FILE = CONFIG_DIR / "accounts.json"
 SETTINGS_FILE = CONFIG_DIR / "settings.yaml"
+ENV_FILE = REPO_ROOT / ".env"
 DEFAULT_CACHE_DIR = REPO_ROOT / "cache"
 DEFAULT_OUTPUT_DIR = REPO_ROOT / "output"
 
@@ -104,6 +105,53 @@ def _deep_copy(obj):
     if isinstance(obj, list):
         return [_deep_copy(v) for v in obj]
     return obj
+
+
+def save_env_key(key: str, value: str, path: Path | str | None = None) -> Path:
+    """Ghi/cập nhật một dòng KEY=value trong .env (giữ các dòng khác).
+
+    Dùng cho key nhạy cảm (vd: ELEVENLABS_API_KEY) — nhập qua CLI/Web,
+    không cần sửa file tay. File .env luôn ở chế độ 0600.
+    """
+    import os
+
+    p = Path(path) if path else ENV_FILE
+    lines: list[str] = []
+    found = False
+    if p.exists():
+        for line in p.read_text(encoding="utf-8").splitlines():
+            if line.strip().startswith(f"{key}="):
+                lines.append(f"{key}={value}")
+                found = True
+            else:
+                lines.append(line)
+    if not found:
+        lines.append(f"{key}={value}")
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    try:
+        os.chmod(p, 0o600)
+    except OSError:
+        pass
+    return p
+
+
+def save_user_settings(patch: dict, path: Path | str | None = None) -> dict:
+    """Ghi đè từng phần settings.yaml của user (giữ các key khác).
+
+    Chỉ ghi những gì user chỉnh (vd: {"elevenlabs": {"default_voice": "Rachel"}}),
+    không dump toàn bộ DEFAULT_SETTINGS ra file.
+    """
+    p = Path(path) if path else SETTINGS_FILE
+    current: dict = {}
+    if p.exists():
+        with open(p, encoding="utf-8") as f:
+            current = yaml.safe_load(f) or {}
+    _deep_merge(current, patch)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    with open(p, "w", encoding="utf-8") as f:
+        yaml.safe_dump(current, f, allow_unicode=True, sort_keys=False)
+    return current
 
 
 def elevenlabs_api_key() -> str:

@@ -5,7 +5,9 @@ Ví dụ:
   python cli.py accounts add --name acc1 --cookie "sessionid=...; ..." --proxy http://user:pass@host:port
   python cli.py accounts list
   python cli.py accounts check
-  python cli.py voices
+  python cli.py voices set-key
+  python cli.py voices list
+  python cli.py voices test Rachel
   python cli.py init --kind documentary --out scripts/dong-vat.yaml
   python cli.py build --script examples/the-gioi-dong-vat.yaml --mock
   python cli.py build --script scripts/phim.yaml --out output/phim1
@@ -28,8 +30,15 @@ from automuse.config import (  # noqa: E402
     REPO_ROOT,
     elevenlabs_api_key,
     load_settings,
+    save_env_key,
+    save_user_settings,
 )
-from automuse.elevenlabs import build_elevenlabs  # noqa: E402
+from automuse.elevenlabs import (  # noqa: E402
+    ElevenLabsClient,
+    ElevenLabsError,
+    build_elevenlabs,
+    estimate_speech_duration,
+)
 from automuse.muse_client import build_client  # noqa: E402
 from automuse.pipeline import generate_clips, log, run_build  # noqa: E402
 from automuse.script import load_script, validate  # noqa: E402
@@ -181,10 +190,23 @@ def cmd_accounts_set_limit(args) -> int:
 
 # ---------------------------------------------------------------- voices
 
-def cmd_voices(args) -> int:
+VOICE_TEST_TEXT = "Xin chào, đây là giọng đọc thử cho bộ phim tài liệu Thế giới động vật."
+
+
+def _find_voice(voices: list[dict], want: str) -> dict | None:
+    want = (want or "").strip()
+    return next(
+        (v for v in voices
+         if str(v.get("voice_id")) == want
+         or str(v.get("name", "")).lower() == want.lower()),
+        None,
+    )
+
+
+def cmd_voices_list(args) -> int:
     settings = load_settings()
     key = elevenlabs_api_key()
-    client = build_elevenlabs(key, settings, mock=args.mock or not key)
+    client = build_elevenlabs(key, settings, mock=getattr(args, "mock", False) or not key)
     try:
         voices = client.list_voices()
     except Exception as e:  # noqa: BLE001
@@ -193,9 +215,85 @@ def cmd_voices(args) -> int:
     print(f"{'Voice ID':<28} {'Tên'}")
     for v in voices:
         print(f"{str(v.get('voice_id')):<28} {v.get('name')}")
-    if not key and not args.mock:
+    if not key and not getattr(args, "mock", False):
         print("\n(Chế độ mock — chưa có ELEVENLABS_API_KEY. "
-              "Đặt key vào .env hoặc biến môi trường để xem giọng thật.)")
+              "Chạy `voices set-key` để nhập key, rồi `voices test <tên-giọng>` để nghe thử.)")
+    return 0
+
+
+def cmd_voices_set_key(_args) -> int:
+    key = getpass.getpass("Dán ElevenLabs API key (ẩn khi gõ): ").strip()
+    if not key:
+        print("Chưa nhập key.")
+        return 1
+    try:
+        voices = ElevenLabsClient(key).list_voices()
+    except ElevenLabsError as e:
+        print(f"Key không dùng được: {e} — chưa lưu gì cả.")
+        return 1
+    except Exception as e:  # noqa: BLE001
+        print(f"Lỗi kiểm tra key: {e} — chưa lưu gì cả.")
+        return 1
+    save_env_key("ELEVENLABS_API_KEY", key)
+    print(f"Đã lưu key vào .env — key đúng, tìm thấy {len(voices)} giọng.")
+    print("Chạy `voices list` để xem, `voices test <tên-giọng>` để nghe thử.")
+    return 0
+
+
+def _voices_client_or_none():
+    """(client, voices) thật, hoặc (None, None) + thông báo khi chưa có key."""
+    settings = load_settings()
+    key = elevenlabs_api_key()
+    if not key:
+        print("Chưa có key ElevenLabs — chạy `voices set-key` trước.")
+        return None, None
+    client = build_elevenlabs(key, settings)
+    try:
+        return client, client.list_voices()
+    except Exception as e:  # noqa: BLE001
+        print(f"Lỗi: {e}")
+        return None, None
+
+
+def cmd_voices_set_default(args) -> int:
+    _client, voices = _voices_client_or_none()
+    if voices is None:
+        return 1
+    match = _find_voice(voices, args.voice)
+    if not match:
+        print(f"Không thấy giọng '{args.voice}'. Chạy `voices list` để xem danh sách.")
+        return 1
+    name = str(match.get("name") or args.voice)
+    save_user_settings({"elevenlabs": {"default_voice": name}})
+    print(f"Giọng mặc định: {name} ({match.get('voice_id')}) — đã lưu vào settings.yaml.")
+    return 0
+
+
+def cmd_voices_test(args) -> int:
+    client, voices = _voices_client_or_none()
+    if voices is None:
+        return 1
+    match = _find_voice(voices, args.voice)
+    if not match:
+        print(f"Không thấy giọng '{args.voice}'. Chạy `voices list` để xem danh sách.")
+        return 1
+    text = (args.text or "").strip() or VOICE_TEST_TEXT
+    safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in str(match.get("name") or args.voice))[:40] or "voice"
+    out_dir = REPO_ROOT / "output" / "voice-test"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    dest = out_dir / f"{safe}.mp3"
+    try:
+        dest = client.tts(text, str(match["voice_id"]), out_path=dest)
+    except Exception as e:  # noqa: BLE001
+        print(f"Lỗi: {e}")
+        return 1
+    try:
+        from automuse.audio import probe_duration  # noqa: E402
+
+        dur = probe_duration(dest)
+    except Exception:  # noqa: BLE001
+        dur = estimate_speech_duration(text)
+    print(f"Đã tạo file nghe thử: {dest} (~{dur:.1f}s) — giọng {match.get('name')}.")
     return 0
 
 
@@ -364,9 +462,22 @@ def build_parser() -> argparse.ArgumentParser:
     a_limit.add_argument("--minutes", type=int, default=None)
     a_limit.set_defaults(func=cmd_accounts_set_limit)
 
-    v = sub.add_parser("voices", help="Liệt kê giọng ElevenLabs")
+    v = sub.add_parser("voices", help="Giọng ElevenLabs: xem / nhập key / chọn giọng mặc định / nghe thử")
     v.add_argument("--mock", action="store_true")
-    v.set_defaults(func=cmd_voices)
+    v.set_defaults(func=cmd_voices_list)
+    v_sub = v.add_subparsers(dest="voice_action")
+    vl = v_sub.add_parser("list", help="Liệt kê giọng ElevenLabs")
+    vl.add_argument("--mock", action="store_true")
+    vl.set_defaults(func=cmd_voices_list)
+    vk = v_sub.add_parser("set-key", help="Nhập ElevenLabs API key (kiểm tra rồi mới lưu vào .env)")
+    vk.set_defaults(func=cmd_voices_set_key)
+    vd = v_sub.add_parser("set-default", help="Đặt giọng đọc mặc định (lưu vào settings.yaml)")
+    vd.add_argument("voice", help="Tên giọng hoặc voice_id (vd: Rachel)")
+    vd.set_defaults(func=cmd_voices_set_default)
+    vt = v_sub.add_parser("test", help="Nghe thử một giọng (tạo file mp3 mẫu trong output/voice-test/)")
+    vt.add_argument("voice", help="Tên giọng hoặc voice_id")
+    vt.add_argument("--text", default="", help="Câu đọc thử (mặc định: câu tiếng Việt mẫu)")
+    vt.set_defaults(func=cmd_voices_test)
 
     i = sub.add_parser("init", help="Tạo kịch bản mẫu (movie/documentary)")
     i.add_argument("--kind", choices=["movie", "documentary"], default="documentary")

@@ -12,6 +12,9 @@ API:
     DELETE /api/accounts/<name>            xóa acc
     POST /api/accounts/<name>/check        kiểm tra proxy + cookie
     GET  /api/voices                      liệt kê giọng ElevenLabs
+    POST /api/elevenlabs/key              nhập key ElevenLabs {key} (kiểm tra rồi mới lưu .env)
+    POST /api/voices/default              đặt giọng mặc định {voice}
+    POST /api/voices/test                 nghe thử giọng {voice, text} -> file mp3
     GET  /api/scripts                     liệt kê kịch bản (templates/examples/scripts)
     GET  /api/scripts/content?path=...    đọc nội dung kịch bản
     POST /api/scripts                     lưu kịch bản {name, content}
@@ -43,8 +46,10 @@ from ..config import (
     REPO_ROOT,
     elevenlabs_api_key,
     load_settings,
+    save_env_key,
+    save_user_settings,
 )
-from ..elevenlabs import build_elevenlabs
+from ..elevenlabs import ElevenLabsClient, ElevenLabsError, build_elevenlabs
 from ..muse_client import build_client
 from ..script import load_script, validate
 from ..usage import UsageTracker
@@ -86,6 +91,25 @@ def _safe_rel_path(base: Path, rel: str) -> Path | None:
     except ValueError:
         return None
     return candidate
+
+
+def _elevenlabs_voices():
+    """(client, voices) thật — raise ValueError nếu chưa có key hoặc API lỗi."""
+    key = elevenlabs_api_key()
+    if not key:
+        raise ValueError("chưa có key ElevenLabs — nhập key trước")
+    client = build_elevenlabs(key, load_settings())
+    return client, client.list_voices()
+
+
+def _find_voice(voices: list[dict], want: str) -> dict | None:
+    want = (want or "").strip()
+    return next(
+        (v for v in voices
+         if str(v.get("voice_id")) == want
+         or str(v.get("name", "")).lower() == want.lower()),
+        None,
+    )
 
 
 def _scripts_catalog() -> list[dict]:
@@ -249,6 +273,7 @@ class StudioHandler(BaseHTTPRequestHandler):
                 "accounts": len(mgr.accounts),
                 "accounts_ready": len(mgr.enabled_accounts()),
                 "elevenlabs_configured": bool(elevenlabs_api_key()),
+                "elevenlabs_default_voice": load_settings().get("elevenlabs", {}).get("default_voice", "narrator"),
                 "outputs": len(_outputs_catalog()),
             })
 
@@ -362,6 +387,61 @@ class StudioHandler(BaseHTTPRequestHandler):
             dest = SCRIPTS_DIR / f"{name}.yaml"
             dest.write_text(content, encoding="utf-8")
             return _json(self, {"ok": True, "path": f"scripts/{name}.yaml"})
+
+        if path == "/api/elevenlabs/key":
+            body = _read_json(self)
+            key = (body.get("key") or "").strip()
+            if not key:
+                return _json(self, {"error": "thiếu key"}, 400)
+            try:
+                voices = ElevenLabsClient(key).list_voices()
+            except ElevenLabsError as e:
+                return _json(self, {"error": str(e)}, 400)
+            except Exception as e:  # noqa: BLE001
+                return _json(self, {"error": str(e)}, 400)
+            save_env_key("ELEVENLABS_API_KEY", key)
+            return _json(self, {"ok": True, "voices": len(voices)})
+
+        if path == "/api/voices/default":
+            body = _read_json(self)
+            want = (body.get("voice") or "").strip()
+            if not want:
+                return _json(self, {"error": "thiếu tên giọng"}, 400)
+            try:
+                _client, voices = _elevenlabs_voices()
+            except Exception as e:  # noqa: BLE001
+                return _json(self, {"error": str(e)}, 400)
+            match = _find_voice(voices, want)
+            if not match:
+                return _json(self, {"error": f"không thấy giọng '{want}'"}, 404)
+            name = str(match.get("name") or want)
+            save_user_settings({"elevenlabs": {"default_voice": name}})
+            return _json(self, {"ok": True, "name": name,
+                                "voice_id": str(match.get("voice_id"))})
+
+        if path == "/api/voices/test":
+            body = _read_json(self)
+            want = (body.get("voice") or "").strip()
+            text = (body.get("text") or "").strip() or \
+                "Xin chào, đây là giọng đọc thử cho bộ phim tài liệu Thế giới động vật."
+            if not want:
+                return _json(self, {"error": "thiếu tên giọng"}, 400)
+            try:
+                client, voices = _elevenlabs_voices()
+            except Exception as e:  # noqa: BLE001
+                return _json(self, {"error": str(e)}, 400)
+            match = _find_voice(voices, want)
+            if not match:
+                return _json(self, {"error": f"không thấy giọng '{want}'"}, 404)
+            safe = re.sub(r"[^A-Za-z0-9_-]", "_", str(match.get("name") or want))[:40] or "voice"
+            out_dir = DEFAULT_OUTPUT_DIR / "voice-test"
+            out_dir.mkdir(parents=True, exist_ok=True)
+            dest = out_dir / f"{safe}.mp3"
+            try:
+                client.tts(text, str(match.get("voice_id")), out_path=dest)
+            except Exception as e:  # noqa: BLE001
+                return _json(self, {"error": str(e)}, 400)
+            return _json(self, {"ok": True, "file": f"/files/voice-test/{dest.name}"})
 
         if path == "/api/build":
             body = _read_json(self)

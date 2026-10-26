@@ -35,7 +35,7 @@ git clone <repo-cua-ban> automuse-multi
 cd automuse-multi
 pip install -r requirements.txt
 cp config/settings.example.yaml config/settings.yaml
-cp .env.example .env   # rồi điền ELEVENLABS_API_KEY
+# Key ElevenLabs nhập sau bằng: python cli.py voices set-key
 ```
 
 ## 1. Thêm tài khoản Muse (cookie + proxy)
@@ -94,15 +94,18 @@ không commit file này). Có thể sửa tay theo mẫu
 
 ## 2. Lồng tiếng ElevenLabs
 
-Lấy key tại [elevenlabs.io](https://elevenlabs.io) → đặt vào `.env`:
-
-```
-ELEVENLABS_API_KEY=sk_...
-```
+Lấy key tại [elevenlabs.io](https://elevenlabs.io) rồi nhập bằng lệnh
+(key được kiểm tra qua API rồi mới lưu vào `.env`, không cần sửa file tay):
 
 ```bash
-python cli.py voices            # liệt kê giọng (lấy voice_id)
+python cli.py voices set-key   # nhập key (ẩn khi gõ), kiểm tra rồi lưu
+python cli.py voices           # liệt kê giọng (lấy voice_id)
+python cli.py voices test Rachel   # nghe thử: tạo output/voice-test/Rachel.mp3
+python cli.py voices set-default Rachel  # đặt giọng mặc định (lưu settings.yaml)
 ```
+
+Web Studio cũng có mục **Lồng tiếng** ở trang Tổng quan: nhập key, chọn
+giọng, đặt mặc định và nghe thử ngay trên trình duyệt.
 
 Trong kịch bản, bảng `voices:` map tên giọng (vd: `narrator`, `An`, `Bình`)
 sang `voice_id`. Có thể dùng tên giọng thay cho ID — tool tự resolve.

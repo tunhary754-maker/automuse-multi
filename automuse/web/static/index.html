@@ -28,6 +28,24 @@
   <!-- ============ DASHBOARD ============ -->
   <section id="tab-dashboard" class="panel active">
     <div class="cards" id="stat-cards"></div>
+    <div class="card form" id="elevenlabs-card">
+      <h2 style="margin-top:0">Lồng tiếng — ElevenLabs</h2>
+      <div class="row">
+        <label class="grow">API key
+          <input type="password" id="el-key" placeholder="sk_... (chỉ lưu trên máy này)" autocomplete="off">
+        </label>
+        <button class="btn primary" id="btn-save-el-key" style="align-self:flex-end">Lưu key</button>
+      </div>
+      <div class="row">
+        <label class="grow">Giọng đọc
+          <select id="el-voice-select"></select>
+        </label>
+        <button class="btn" id="btn-el-set-default" style="align-self:flex-end">Đặt làm mặc định</button>
+        <button class="btn" id="btn-el-test" style="align-self:flex-end">▶ Nghe thử</button>
+      </div>
+      <audio id="el-test-audio" controls style="width:100%;display:none"></audio>
+      <span class="msg" id="el-msg"></span>
+    </div>
     <h2>Video mới nhất</h2>
     <div id="latest-outputs" class="outputs-grid"></div>
     <h2>Việc cần làm</h2>
