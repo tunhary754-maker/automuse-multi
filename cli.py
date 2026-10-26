@@ -256,16 +256,125 @@ def _voices_client_or_none():
 
 
 def cmd_voices_set_default(args) -> int:
-    _client, voices = _voices_client_or_none()
-    if voices is None:
+    want = (args.voice or "").strip()
+    if not want:
+        print("Chưa nhập tên giọng / voice_id.")
         return 1
-    match = _find_voice(voices, args.voice)
-    if not match:
-        print(f"Không thấy giọng '{args.voice}'. Chạy `voices list` để xem danh sách.")
+    settings = load_settings()
+    key = elevenlabs_api_key()
+    if not key:
+        # Chưa có key thì vẫn lưu để dùng sau, cảnh báo chưa kiểm chứng.
+        save_user_settings({"elevenlabs": {"default_voice": want}})
+        print(f"Đã lưu giọng mặc định: {want} (chưa kiểm chứng vì chưa có key — "
+              "chạy `voices set-key` để kiểm tra).")
+        return 0
+    client = build_elevenlabs(key, settings)
+    try:
+        voices = client.list_voices()
+    except Exception as e:  # noqa: BLE001
+        print(f"Lỗi: {e}")
         return 1
-    name = str(match.get("name") or args.voice)
-    save_user_settings({"elevenlabs": {"default_voice": name}})
-    print(f"Giọng mặc định: {name} ({match.get('voice_id')}) — đã lưu vào settings.yaml.")
+    match = _find_voice(voices, want)
+    if match:
+        name = str(match.get("name") or want)
+        save_user_settings({"elevenlabs": {"default_voice": name}})
+        print(f"Giọng mặc định: {name} ({match.get('voice_id')}) — đã lưu vào settings.yaml.")
+        return 0
+    # Không có trong danh sách acc — thử lấy thẳng theo voice_id
+    # (giọng share từ Voice Library, giọng clone).
+    try:
+        voice = client.get_voice(want)
+    except Exception:  # noqa: BLE001
+        print(f"Không thấy giọng '{want}'. Chạy `voices list` để xem danh sách, "
+              "hoặc kiểm tra lại voice_id.")
+        return 1
+    save_user_settings({"elevenlabs": {"default_voice": str(voice.get("voice_id"))}})
+    print(f"Giọng mặc định: {voice.get('name')} ({voice.get('voice_id')}) "
+          "— đã lưu voice_id vào settings.yaml.")
+    return 0
+
+
+def cmd_voices_add(args) -> int:
+    """Kiểm tra 1 voice_id có tồn tại không (giọng share/clone)."""
+    client, _voices = _voices_client_or_none()
+    if client is None:
+        return 1
+    try:
+        voice = client.get_voice((args.voice_id or "").strip())
+    except Exception as e:  # noqa: BLE001
+        print(f"Không lấy được giọng '{args.voice_id}': {e}")
+        return 1
+    print(f"Giọng: {voice.get('name')} ({voice.get('voice_id')})"
+          f" — category: {voice.get('category', '?')}.")
+    print(f"Chạy `voices set-default {voice.get('voice_id')}` để dùng giọng này.")
+    return 0
+
+
+def cmd_voices_show(_args) -> int:
+    settings = load_settings()
+    cfg = settings.get("elevenlabs", {})
+    key = elevenlabs_api_key()
+    print("Cài đặt lồng tiếng (ElevenLabs):")
+    print(f"  Key: {'đã có' if key else 'chưa có — chạy `voices set-key`'}")
+    print(f"  Giọng mặc định: {cfg.get('default_voice', 'narrator')}")
+    print(f"  Model: {cfg.get('model', 'eleven_multilingual_v2')}")
+    print(f"  Tốc độ: {cfg.get('speed', 1.0)}x (0.5–2.0)")
+    print(f"  Độ ổn định (stability): {cfg.get('stability', 0.5)} (0–1)")
+    print(f"  Độ giống giọng (similarity): {cfg.get('similarity_boost', 0.75)} (0–1)")
+    print(f"  Độ biểu cảm (style): {cfg.get('style', 0.0)} (0–1)")
+    print(f"  Speaker boost: {cfg.get('use_speaker_boost', True)}")
+    return 0
+
+
+def _set_voice_number(args, key: str, lo: float, hi: float, label: str, unit: str = "") -> int:
+    try:
+        value = float(args.value)
+    except (TypeError, ValueError):
+        print(f"{label} phải là số.")
+        return 1
+    if not lo <= value <= hi:
+        print(f"{label} phải trong khoảng {lo}–{hi}.")
+        return 1
+    save_user_settings({"elevenlabs": {key: value}})
+    print(f"{label}: {value}{unit} — đã lưu vào settings.yaml.")
+    return 0
+
+
+def cmd_voices_set_speed(args) -> int:
+    return _set_voice_number(args, "speed", 0.5, 2.0, "Tốc độ đọc", "x")
+
+
+def cmd_voices_set_stability(args) -> int:
+    return _set_voice_number(args, "stability", 0.0, 1.0, "Độ ổn định")
+
+
+def cmd_voices_set_similarity(args) -> int:
+    return _set_voice_number(args, "similarity_boost", 0.0, 1.0, "Độ giống giọng")
+
+
+def cmd_voices_set_style(args) -> int:
+    return _set_voice_number(args, "style", 0.0, 1.0, "Độ biểu cảm (style)")
+
+
+KNOWN_VOICE_MODELS = [
+    "eleven_multilingual_v2",
+    "eleven_v3",
+    "eleven_turbo_v2_5",
+    "eleven_flash_v2_5",
+]
+
+
+def cmd_voices_set_model(args) -> int:
+    model = (args.model or "").strip()
+    if not model:
+        print("Chưa nhập model.")
+        return 1
+    if model not in KNOWN_VOICE_MODELS:
+        print(f"Model '{model}' không nằm trong danh sách quen thuộc "
+              f"({', '.join(KNOWN_VOICE_MODELS)}) — vẫn lưu, build sẽ báo lỗi "
+              "nếu model không đúng.")
+    save_user_settings({"elevenlabs": {"model": model}})
+    print(f"Model lồng tiếng: {model} — đã lưu vào settings.yaml.")
     return 0
 
 
@@ -274,6 +383,12 @@ def cmd_voices_test(args) -> int:
     if voices is None:
         return 1
     match = _find_voice(voices, args.voice)
+    if not match:
+        try:
+            v = client.get_voice(args.voice)
+            match = {"voice_id": v.get("voice_id"), "name": v.get("name") or args.voice}
+        except Exception:  # noqa: BLE001
+            match = None
     if not match:
         print(f"Không thấy giọng '{args.voice}'. Chạy `voices list` để xem danh sách.")
         return 1
@@ -471,13 +586,30 @@ def build_parser() -> argparse.ArgumentParser:
     vl.set_defaults(func=cmd_voices_list)
     vk = v_sub.add_parser("set-key", help="Nhập ElevenLabs API key (kiểm tra rồi mới lưu vào .env)")
     vk.set_defaults(func=cmd_voices_set_key)
-    vd = v_sub.add_parser("set-default", help="Đặt giọng đọc mặc định (lưu vào settings.yaml)")
-    vd.add_argument("voice", help="Tên giọng hoặc voice_id (vd: Rachel)")
+    vd = v_sub.add_parser("set-default", help="Đặt giọng đọc mặc định (tên giọng hoặc voice_id)")
+    vd.add_argument("voice", help="Tên giọng hoặc voice_id (vd: Rachel, 21m00Tcm4TlvDq8ikWAM)")
     vd.set_defaults(func=cmd_voices_set_default)
     vt = v_sub.add_parser("test", help="Nghe thử một giọng (tạo file mp3 mẫu trong output/voice-test/)")
     vt.add_argument("voice", help="Tên giọng hoặc voice_id")
     vt.add_argument("--text", default="", help="Câu đọc thử (mặc định: câu tiếng Việt mẫu)")
     vt.set_defaults(func=cmd_voices_test)
+    vs = v_sub.add_parser("show", help="Xem toàn bộ cài đặt giọng hiện tại")
+    vs.set_defaults(func=cmd_voices_show)
+    va = v_sub.add_parser("add", help="Kiểm tra 1 voice_id có tồn tại không (giọng share/clone)")
+    va.add_argument("voice_id", help="Voice ID trên ElevenLabs")
+    va.set_defaults(func=cmd_voices_add)
+    for name, func, label, hint in (
+        ("set-speed", cmd_voices_set_speed, "Tốc độ đọc", "0.5–2.0 (1.0 = bình thường)"),
+        ("set-stability", cmd_voices_set_stability, "Độ ổn định", "0–1 (càng cao giọng càng đều, rõ)"),
+        ("set-similarity", cmd_voices_set_similarity, "Độ giống giọng", "0–1 (càng cao càng giống giọng gốc)"),
+        ("set-style", cmd_voices_set_style, "Độ biểu cảm (style)", "0–1 (model v2/v3)"),
+    ):
+        sp = v_sub.add_parser(name, help=f"Đặt {label.lower()} ({hint})")
+        sp.add_argument("value", help=hint)
+        sp.set_defaults(func=func)
+    vm = v_sub.add_parser("set-model", help="Đổi model lồng tiếng")
+    vm.add_argument("model", help="vd: eleven_multilingual_v2, eleven_v3, eleven_turbo_v2_5")
+    vm.set_defaults(func=cmd_voices_set_model)
 
     i = sub.add_parser("init", help="Tạo kịch bản mẫu (movie/documentary)")
     i.add_argument("--kind", choices=["movie", "documentary"], default="documentary")

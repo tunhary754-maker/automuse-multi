@@ -104,8 +104,30 @@ python cli.py voices test Rachel   # nghe thử: tạo output/voice-test/Rachel.
 python cli.py voices set-default Rachel  # đặt giọng mặc định (lưu settings.yaml)
 ```
 
+**Setup giọng chi tiết** — chọn giọng bằng tên hoặc `voice_id` thẳng từ
+ElevenLabs (giọng share từ Voice Library, giọng clone — không cần có trong
+danh sách acc), chỉnh tốc độ và các tham số giọng:
+
+```bash
+python cli.py voices add 21m00Tcm4TlvDq8ikWAM  # kiểm tra 1 voice_id có tồn tại không
+python cli.py voices set-default 21m00Tcm4TlvDq8ikWAM  # dùng giọng đó làm mặc định
+python cli.py voices set-speed 1.2      # tốc độ đọc 0.5–2.0 (1.0 = bình thường)
+python cli.py voices set-stability 0.7  # 0–1: càng cao giọng càng đều, rõ
+python cli.py voices set-similarity 0.8 # 0–1: càng cao càng giống giọng gốc
+python cli.py voices set-style 0.3      # 0–1: độ biểu cảm (model v2/v3)
+python cli.py voices set-model eleven_v3
+python cli.py voices show               # xem toàn bộ cài đặt hiện tại
+```
+
+Tốc độ được đổi bằng ffmpeg `atempo` sau khi tải audio nên áp dụng cho mọi
+giọng/model; độ dài cảnh tự co theo đúng tốc độ đã chọn (đo từ file thật).
+Các giá trị trên cũng lưu trong `config/settings.yaml` mục `elevenlabs`
+(`default_voice`, `speed`, `stability`, `similarity_boost`, `style`,
+`model`, `use_speaker_boost`).
+
 Web Studio cũng có mục **Lồng tiếng** ở trang Tổng quan: nhập key, chọn
-giọng, đặt mặc định và nghe thử ngay trên trình duyệt.
+giọng, đặt mặc định, nghe thử ngay trên trình duyệt, nhập `voice_id`
+custom và chỉnh tốc độ/ổn định/giống giọng/biểu cảm/model.
 
 Trong kịch bản, bảng `voices:` map tên giọng (vd: `narrator`, `An`, `Bình`)
 sang `voice_id`. Có thể dùng tên giọng thay cho ID — tool tự resolve.

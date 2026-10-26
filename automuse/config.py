@@ -64,6 +64,9 @@ DEFAULT_SETTINGS = {
         "default_voice": "narrator",
         "stability": 0.5,
         "similarity_boost": 0.75,
+        "speed": 1.0,
+        "style": 0.0,
+        "use_speaker_boost": True,
     },
     "video": {
         "width_16_9": 1280,

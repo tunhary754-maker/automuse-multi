@@ -43,6 +43,38 @@
         <button class="btn" id="btn-el-set-default" style="align-self:flex-end">Đặt làm mặc định</button>
         <button class="btn" id="btn-el-test" style="align-self:flex-end">▶ Nghe thử</button>
       </div>
+      <div class="row">
+        <label class="grow">Giọng custom (voice_id)
+          <input id="el-voice-id" placeholder="vd: 21m00Tcm4TlvDq8ikWAM (để trống = dùng giọng đã chọn)" autocomplete="off">
+        </label>
+      </div>
+      <div class="row">
+        <label>Tốc độ đọc
+          <input type="number" id="el-speed" min="0.5" max="2" step="0.05" value="1">
+        </label>
+        <label>Độ ổn định
+          <input type="number" id="el-stability" min="0" max="1" step="0.05" value="0.5">
+        </label>
+        <label>Độ giống giọng
+          <input type="number" id="el-similarity" min="0" max="1" step="0.05" value="0.75">
+        </label>
+        <label>Độ biểu cảm
+          <input type="number" id="el-style" min="0" max="1" step="0.05" value="0">
+        </label>
+      </div>
+      <div class="row">
+        <label class="grow">Model
+          <select id="el-model">
+            <option value="eleven_multilingual_v2">eleven_multilingual_v2 (tiếng Việt tốt)</option>
+            <option value="eleven_v3">eleven_v3 (biểu cảm nhất)</option>
+            <option value="eleven_turbo_v2_5">eleven_turbo_v2_5 (nhanh, rẻ)</option>
+            <option value="eleven_flash_v2_5">eleven_flash_v2_5 (nhanh nhất)</option>
+          </select>
+        </label>
+        <label style="align-self:flex-end"><input type="checkbox" id="el-speaker-boost" checked> Tăng độ rõ giọng</label>
+        <button class="btn primary" id="btn-save-voice-settings" style="align-self:flex-end">Lưu cài đặt giọng</button>
+      </div>
+      <span class="msg" id="el-settings-msg"></span>
       <audio id="el-test-audio" controls style="width:100%;display:none"></audio>
       <span class="msg" id="el-msg"></span>
     </div>

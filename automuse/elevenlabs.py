@@ -41,13 +41,27 @@ class ElevenLabsClient:
         cache_dir: str | Path | None = None,
         stability: float = 0.5,
         similarity_boost: float = 0.75,
+        speed: float = 1.0,
+        style: float = 0.0,
+        use_speaker_boost: bool = True,
     ):
         if not api_key:
             raise ElevenLabsError("Thiếu ELEVENLABS_API_KEY")
+        for name, value, lo, hi in (
+            ("stability", stability, 0.0, 1.0),
+            ("similarity_boost", similarity_boost, 0.0, 1.0),
+            ("style", style, 0.0, 1.0),
+            ("speed", speed, 0.5, 2.0),
+        ):
+            if not lo <= float(value) <= hi:
+                raise ElevenLabsError(f"{name} phải trong khoảng {lo}–{hi}")
         self.api_key = api_key
         self.model = model
-        self.stability = stability
-        self.similarity_boost = similarity_boost
+        self.stability = float(stability)
+        self.similarity_boost = float(similarity_boost)
+        self.speed = float(speed)
+        self.style = float(style)
+        self.use_speaker_boost = bool(use_speaker_boost)
         self.cache_dir = Path(cache_dir) if cache_dir else Path("cache/tts")
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.session = requests.Session()
@@ -64,21 +78,43 @@ class ElevenLabsClient:
         r.raise_for_status()
         return r.json().get("voices", [])
 
+    def get_voice(self, voice_id: str) -> dict:
+        """Lấy 1 giọng theo voice_id — dùng khi ID không có trong
+        list_voices (vd: giọng share từ Voice Library, giọng clone)."""
+        r = self.session.get(f"{ELEVENLABS_BASE}/voices/{voice_id}", timeout=30)
+        if r.status_code == 401:
+            raise ElevenLabsError("API key ElevenLabs không đúng (401)")
+        if r.status_code == 404:
+            raise ElevenLabsError(f"Không thấy giọng có voice_id '{voice_id}'")
+        r.raise_for_status()
+        return r.json()
+
     def resolve_voice(self, name_or_id: str) -> str:
-        """Cho phép dùng tên giọng (vd: 'Rachel') thay vì voice_id."""
+        """Cho phép dùng tên giọng (vd: 'Rachel') thay vì voice_id.
+
+        Không có trong danh sách acc thì thử lấy thẳng theo ID — các
+        giọng share/clone có voice_id vẫn dùng được.
+        """
         if not name_or_id:
             raise ElevenLabsError("Chưa chỉ định giọng đọc")
         voices = self.list_voices()
         for v in voices:
             if v.get("voice_id") == name_or_id or v.get("name", "").lower() == name_or_id.lower():
                 return str(v["voice_id"])
-        raise ElevenLabsError(
-            f"Không thấy giọng '{name_or_id}'. Chạy `voices` để xem danh sách."
-        )
+        try:
+            voice = self.get_voice(name_or_id)
+        except ElevenLabsError:
+            raise ElevenLabsError(
+                f"Không thấy giọng '{name_or_id}'. Chạy `voices` để xem danh sách."
+            ) from None
+        return str(voice.get("voice_id") or name_or_id)
 
     # -- tts ----------------------------------------------------------
     def _cache_key(self, text: str, voice_id: str) -> str:
-        raw = f"{self.model}|{voice_id}|{self.stability}|{self.similarity_boost}|{text}"
+        raw = (
+            f"{self.model}|{voice_id}|{self.stability}|{self.similarity_boost}"
+            f"|{self.style}|{self.use_speaker_boost}|{self.speed}|{text}"
+        )
         return hashlib.sha1(raw.encode("utf-8")).hexdigest()[:16]
 
     def tts(
@@ -90,7 +126,11 @@ class ElevenLabsClient:
         key = self._cache_key(text, voice_id)
         dest = Path(out_path) if out_path else self.cache_dir / f"{key}.mp3"
         dest.parent.mkdir(parents=True, exist_ok=True)
-        if dest.exists() and dest.stat().st_size > 0:
+        # Cache: file trong cache_dir đã mã theo tốc độ (nằm trong key);
+        # file đích chỉ định (từng cảnh / nghe thử) chỉ dùng lại khi
+        # tốc độ = 1.0, còn không thì tạo lại cho đúng tốc độ mới.
+        use_cache = out_path is None or self.speed == 1.0
+        if use_cache and dest.exists() and dest.stat().st_size > 0:
             return dest  # dùng cache
         payload = {
             "text": text,
@@ -98,6 +138,8 @@ class ElevenLabsClient:
             "voice_settings": {
                 "stability": self.stability,
                 "similarity_boost": self.similarity_boost,
+                "style": self.style,
+                "use_speaker_boost": self.use_speaker_boost,
             },
         }
         r = self.session.post(
@@ -110,16 +152,32 @@ class ElevenLabsClient:
         if r.status_code == 422:
             raise ElevenLabsError(f"ElevenLabs từ chối: {r.text[:300]}")
         r.raise_for_status()
-        dest.write_bytes(r.content)
+        if self.speed == 1.0:
+            dest.write_bytes(r.content)
+            return dest
+        # Tốc độ đọc: ElevenLabs không có tham số speed cho mọi model,
+        # nên đổi tốc độ bằng ffmpeg atempo (áp cho mọi giọng/model).
+        tmp = dest.parent / f".{dest.stem}.raw{dest.suffix}"
+        tmp.write_bytes(r.content)
+        try:
+            codec = "libmp3lame" if dest.suffix.lower() == ".mp3" else "pcm_s16le"
+            run_ffmpeg([
+                "ffmpeg", "-y", "-i", str(tmp),
+                "-filter:a", f"atempo={self.speed:.3f}",
+                "-c:a", codec, str(dest),
+            ])
+        finally:
+            tmp.unlink(missing_ok=True)
         return dest
 
 
 class MockElevenLabs:
     """Tạo wav im lặng đúng độ dài ước lượng — chạy thử không cần key."""
 
-    def __init__(self, cache_dir: str | Path | None = None, **_kwargs):
+    def __init__(self, cache_dir: str | Path | None = None, speed: float = 1.0, **_kwargs):
         self.cache_dir = Path(cache_dir) if cache_dir else Path("cache/tts")
         self.cache_dir.mkdir(parents=True, exist_ok=True)
+        self.speed = float(speed) or 1.0
 
     def list_voices(self) -> list[dict]:
         return [
@@ -137,7 +195,7 @@ class MockElevenLabs:
         dest.parent.mkdir(parents=True, exist_ok=True)
         if dest.exists() and dest.stat().st_size > 0:
             return dest
-        duration = estimate_speech_duration(text)
+        duration = estimate_speech_duration(text) / self.speed
         # Pipeline lưu TTS mock ra .mp3 nhưng pcm_s16le không mux được
         # vào MP3 (ffmpeg lỗi 234) — dùng libmp3lame cho .mp3,
         # giữ pcm_s16le cho .wav.
@@ -155,11 +213,17 @@ def build_elevenlabs(api_key: str, settings: dict, mock: bool = False,
                      cache_dir: str | Path | None = None):
     cfg = settings.get("elevenlabs", {})
     if mock or not api_key:
-        return MockElevenLabs(cache_dir)
+        return MockElevenLabs(
+            cache_dir,
+            speed=float(cfg.get("speed", 1.0)),
+        )
     return ElevenLabsClient(
         api_key,
         model=cfg.get("model", "eleven_multilingual_v2"),
         cache_dir=cache_dir,
         stability=float(cfg.get("stability", 0.5)),
         similarity_boost=float(cfg.get("similarity_boost", 0.75)),
+        speed=float(cfg.get("speed", 1.0)),
+        style=float(cfg.get("style", 0.0)),
+        use_speaker_boost=bool(cfg.get("use_speaker_boost", True)),
     )

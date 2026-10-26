@@ -45,9 +45,12 @@ limits:
 
 elevenlabs:
   model: "eleven_multilingual_v2"   # đọc tốt tiếng Việt
-  default_voice: "narrator"
-  stability: 0.5
-  similarity_boost: 0.75
+  default_voice: "narrator"         # tên giọng hoặc voice_id (vd: 21m00Tcm4TlvDq8ikWAM)
+  stability: 0.5                    # 0–1: càng cao giọng càng đều, rõ
+  similarity_boost: 0.75            # 0–1: càng cao càng giống giọng gốc
+  speed: 1.0                        # tốc độ đọc 0.5–2.0 (1.0 = bình thường)
+  style: 0.0                        # 0–1: độ biểu cảm (model v2/v3)
+  use_speaker_boost: true           # tăng độ rõ giọng
 
 video:
   width_16_9: 1280

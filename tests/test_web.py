@@ -23,12 +23,16 @@ class TestOutputsApi(unittest.TestCase):
     def setUp(self):
         from automuse.web import server as server_mod
         from automuse.web.server import StudioHandler
+        import automuse.config as config_mod
 
         self.tmp = tempfile.TemporaryDirectory()
         self.base = Path(self.tmp.name)
         self._server_mod = server_mod
         self._orig_output_dir = server_mod.DEFAULT_OUTPUT_DIR
         server_mod.DEFAULT_OUTPUT_DIR = self.base
+        self._config_mod = config_mod
+        self._orig_settings = config_mod.SETTINGS_FILE
+        config_mod.SETTINGS_FILE = self.base / "settings.yaml"
         self.data = bytes(range(256)) * 40  # 10240 byte, nội dung xác định
         base_t = 1_700_000_000
         for i in range(self.N):
@@ -53,6 +57,7 @@ class TestOutputsApi(unittest.TestCase):
         self.httpd.shutdown()
         self.httpd.server_close()
         self._server_mod.DEFAULT_OUTPUT_DIR = self._orig_output_dir
+        self._config_mod.SETTINGS_FILE = self._orig_settings
         self.tmp.cleanup()
 
     def _get(self, path, headers=None):
@@ -63,6 +68,36 @@ class TestOutputsApi(unittest.TestCase):
         hdrs = {k.lower(): v for k, v in resp.getheaders()}
         conn.close()
         return resp.status, hdrs, body
+
+    def _post(self, path, payload):
+        conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=10)
+        conn.request("POST", path, body=json.dumps(payload),
+                     headers={"Content-Type": "application/json"})
+        resp = conn.getresponse()
+        data = json.loads(resp.read())
+        conn.close()
+        return resp.status, data
+
+    def test_voice_settings_endpoint(self):
+        status, data = self._post("/api/voices/settings",
+                                  {"speed": 1.2, "stability": 0.7})
+        self.assertEqual(status, 200)
+        self.assertTrue(data["ok"])
+        import yaml
+        saved = yaml.safe_load((self.base / "settings.yaml").read_text(encoding="utf-8"))
+        self.assertEqual(saved["elevenlabs"]["speed"], 1.2)
+        self.assertEqual(saved["elevenlabs"]["stability"], 0.7)
+
+    def test_voice_settings_invalid_range(self):
+        status, _data = self._post("/api/voices/settings", {"speed": 5})
+        self.assertEqual(status, 400)
+
+    def test_status_has_voice_settings(self):
+        status, _, body = self._get("/api/status")
+        self.assertEqual(status, 200)
+        data = json.loads(body)
+        self.assertIn("elevenlabs_settings", data)
+        self.assertEqual(data["elevenlabs_settings"]["speed"], 1.0)
 
     def test_pagination(self):
         status, _, body = self._get("/api/outputs?page=1&per_page=10")

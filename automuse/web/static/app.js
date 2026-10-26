@@ -261,6 +261,13 @@ async function loadElevenLabsCard() {
   const msg = $("#el-msg");
   try {
     const s = await api("/api/status");
+    const vs = s.elevenlabs_settings || {};
+    $("#el-speed").value = vs.speed ?? 1;
+    $("#el-stability").value = vs.stability ?? 0.5;
+    $("#el-similarity").value = vs.similarity_boost ?? 0.75;
+    $("#el-style").value = vs.style ?? 0;
+    $("#el-model").value = vs.model || "eleven_multilingual_v2";
+    $("#el-speaker-boost").checked = vs.use_speaker_boost !== false;
     if (!s.elevenlabs_configured) {
       sel.innerHTML = `<option value="">— nhập key trước —</option>`;
       return;
@@ -273,6 +280,25 @@ async function loadElevenLabsCard() {
     msg.textContent = `Không tải được giọng: ${e.message}`;
   }
 }
+$("#btn-save-voice-settings").addEventListener("click", async () => {
+  const msg = $("#el-settings-msg");
+  const voiceId = $("#el-voice-id").value.trim();
+  const body = {
+    speed: parseFloat($("#el-speed").value),
+    stability: parseFloat($("#el-stability").value),
+    similarity_boost: parseFloat($("#el-similarity").value),
+    style: parseFloat($("#el-style").value),
+    model: $("#el-model").value,
+    use_speaker_boost: $("#el-speaker-boost").checked,
+  };
+  if (voiceId) body.voice = voiceId;
+  msg.textContent = "Đang lưu…";
+  try {
+    await api("/api/voices/settings", { method: "POST", body: JSON.stringify(body) });
+    msg.textContent = "Đã lưu cài đặt giọng.";
+    loadElevenLabsCard();
+  } catch (e) { msg.textContent = `Lỗi: ${e.message}`; }
+});
 $("#btn-save-el-key").addEventListener("click", async () => {
   const msg = $("#el-msg");
   const key = $("#el-key").value.trim();

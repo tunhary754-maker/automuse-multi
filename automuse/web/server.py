@@ -14,6 +14,7 @@ API:
     GET  /api/voices                      liệt kê giọng ElevenLabs
     POST /api/elevenlabs/key              nhập key ElevenLabs {key} (kiểm tra rồi mới lưu .env)
     POST /api/voices/default              đặt giọng mặc định {voice}
+    POST /api/voices/settings             cài đặt giọng chi tiết {voice?, speed?, stability?, similarity_boost?, style?, model?, use_speaker_boost?}
     POST /api/voices/test                 nghe thử giọng {voice, text} -> file mp3
     GET  /api/scripts                     liệt kê kịch bản (templates/examples/scripts)
     GET  /api/scripts/content?path=...    đọc nội dung kịch bản
@@ -319,6 +320,15 @@ class StudioHandler(BaseHTTPRequestHandler):
                 "accounts_ready": len(mgr.enabled_accounts()),
                 "elevenlabs_configured": bool(elevenlabs_api_key()),
                 "elevenlabs_default_voice": load_settings().get("elevenlabs", {}).get("default_voice", "narrator"),
+                "elevenlabs_settings": {
+                    "default_voice": load_settings().get("elevenlabs", {}).get("default_voice", "narrator"),
+                    "model": load_settings().get("elevenlabs", {}).get("model", "eleven_multilingual_v2"),
+                    "speed": float(load_settings().get("elevenlabs", {}).get("speed", 1.0)),
+                    "stability": float(load_settings().get("elevenlabs", {}).get("stability", 0.5)),
+                    "similarity_boost": float(load_settings().get("elevenlabs", {}).get("similarity_boost", 0.75)),
+                    "style": float(load_settings().get("elevenlabs", {}).get("style", 0.0)),
+                    "use_speaker_boost": bool(load_settings().get("elevenlabs", {}).get("use_speaker_boost", True)),
+                },
                 "outputs": len(_outputs_catalog()),
             })
 
@@ -474,16 +484,65 @@ class StudioHandler(BaseHTTPRequestHandler):
             if not want:
                 return _json(self, {"error": "thiếu tên giọng"}, 400)
             try:
-                _client, voices = _elevenlabs_voices()
+                client, voices = _elevenlabs_voices()
             except Exception as e:  # noqa: BLE001
                 return _json(self, {"error": str(e)}, 400)
             match = _find_voice(voices, want)
-            if not match:
+            if match:
+                name = str(match.get("name") or want)
+                save_user_settings({"elevenlabs": {"default_voice": name}})
+                return _json(self, {"ok": True, "name": name,
+                                    "voice_id": str(match.get("voice_id"))})
+            # Không có trong danh sách acc — thử lấy thẳng theo voice_id.
+            try:
+                voice = client.get_voice(want)
+            except Exception:  # noqa: BLE001
                 return _json(self, {"error": f"không thấy giọng '{want}'"}, 404)
-            name = str(match.get("name") or want)
-            save_user_settings({"elevenlabs": {"default_voice": name}})
-            return _json(self, {"ok": True, "name": name,
-                                "voice_id": str(match.get("voice_id"))})
+            save_user_settings({"elevenlabs": {"default_voice": str(voice.get("voice_id"))}})
+            return _json(self, {"ok": True, "name": str(voice.get("name") or want),
+                                "voice_id": str(voice.get("voice_id"))})
+
+        if path == "/api/voices/settings":
+            # Cài đặt giọng chi tiết: tốc độ, stability, similarity,
+            # style, model, speaker boost, giọng mặc định (tên/voice_id).
+            body = _read_json(self)
+            patch: dict = {}
+            for key, lo, hi in (
+                ("speed", 0.5, 2.0),
+                ("stability", 0.0, 1.0),
+                ("similarity_boost", 0.0, 1.0),
+                ("style", 0.0, 1.0),
+            ):
+                if key in body and body[key] is not None:
+                    try:
+                        value = float(body[key])
+                    except (TypeError, ValueError):
+                        return _json(self, {"error": f"{key} phải là số"}, 400)
+                    if not lo <= value <= hi:
+                        return _json(self, {"error": f"{key} phải trong khoảng {lo}–{hi}"}, 400)
+                    patch[key] = value
+            if body.get("model"):
+                patch["model"] = str(body["model"]).strip()
+            if "use_speaker_boost" in body:
+                patch["use_speaker_boost"] = bool(body["use_speaker_boost"])
+            if body.get("voice"):
+                want = str(body["voice"]).strip()
+                resolved = None
+                try:
+                    _client, voices = _elevenlabs_voices()
+                    match = _find_voice(voices, want)
+                    if match:
+                        resolved = str(match.get("name") or want)
+                    else:
+                        voice = _client.get_voice(want)
+                        resolved = str(voice.get("voice_id"))
+                except Exception:  # noqa: BLE001 - chưa có key thì lưu thô
+                    resolved = want
+                patch["default_voice"] = resolved
+            if not patch:
+                return _json(self, {"error": "không có gì để lưu"}, 400)
+            save_user_settings({"elevenlabs": patch})
+            return _json(self, {"ok": True, "settings": patch})
 
         if path == "/api/voices/test":
             body = _read_json(self)
@@ -497,6 +556,12 @@ class StudioHandler(BaseHTTPRequestHandler):
             except Exception as e:  # noqa: BLE001
                 return _json(self, {"error": str(e)}, 400)
             match = _find_voice(voices, want)
+            if not match:
+                try:
+                    v = client.get_voice(want)
+                    match = {"voice_id": v.get("voice_id"), "name": v.get("name") or want}
+                except Exception:  # noqa: BLE001
+                    match = None
             if not match:
                 return _json(self, {"error": f"không thấy giọng '{want}'"}, 404)
             safe = re.sub(r"[^A-Za-z0-9_-]", "_", str(match.get("name") or want))[:40] or "voice"
