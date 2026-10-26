@@ -1,4 +1,5 @@
 .env
+.venv/
 config/accounts.json
 config/settings.yaml
 config/cookies*.txt

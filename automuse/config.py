@@ -36,8 +36,9 @@ DEFAULT_SETTINGS = {
         "job_status_path": "/api/media/jobs/{job_id}",
         # Transport gọi Muse: "rest" (REST đoán mò, đã biết sai: 403) hoặc
         # "gateway" (Noise WebSocket thật, xem docs/gateway-protocol.md).
-        # Mặc định "rest" cho tới khi gateway được kiểm chứng xong.
-        "transport": "rest",
+        # Mặc định "gateway" từ 2026-10-26: vòng lặp đã khép kín live
+        # (gửi qua chat.stream + lấy video về qua chat.history/fs.raw).
+        "transport": "gateway",
         "timeout": 120,
         "poll_interval": 5,
         "poll_timeout": 900,

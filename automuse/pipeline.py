@@ -48,6 +48,32 @@ def _scene_target_duration(scene: Scene, tts_duration: float) -> float:
     return max(float(scene.duration), tts_duration + 0.5)
 
 
+def _describe_ineligible(pool, tracker, settings) -> str:
+    """Lý do từng acc không dùng được — tách cooldown (lỗi liên tiếp)
+    khỏi hết quota tuần, để thông báo không đổ oan cho giới hạn tuần."""
+    cooling, exhausted = [], []
+    for a in pool:
+        r = tracker.remaining(a, settings)
+        if a.is_on_cooldown():
+            wait = max(0, int(a.cooldown_until - time.time()))
+            cooling.append(f"{a.name} (đang nghỉ sau lỗi, thử lại sau ~{wait}s)")
+        else:
+            exhausted.append(
+                f"{a.name} (đã dùng {r['videos']}/{r['max_videos'] or '∞'} video, "
+                f"{r['minutes']}/{r['max_minutes'] or '∞'} phút)"
+            )
+    parts = []
+    if cooling:
+        parts.append("acc đang nghỉ sau 3 lỗi liên tiếp — " + ", ".join(cooling))
+    if exhausted:
+        parts.append(
+            "acc hết giới hạn tuần — " + ", ".join(exhausted)
+            + ". Tăng giới hạn trong settings.yaml hoặc `accounts set-limit`, "
+            "hoặc đợi sang tuần mới."
+        )
+    return "Không còn acc nào dùng được: " + "; ".join(parts) + "."
+
+
 def generate_clips(
     script: Script,
     out_dir: Path,
@@ -99,16 +125,7 @@ def generate_clips(
                     if not a.is_on_cooldown() and tracker.has_budget(a, settings)
                 ]
                 if not eligible:
-                    exhausted = ", ".join(
-                        f"{a.name} ({tracker.remaining(a, settings)['videos']} video, "
-                        f"{tracker.remaining(a, settings)['minutes']} phút)"
-                        for a in pool
-                    )
-                    raise RuntimeError(
-                        f"Hết giới hạn tuần: không còn acc nào dùng được — {exhausted}. "
-                        "Tăng giới hạn trong settings.yaml hoặc `accounts set-limit`, "
-                        "hoặc đợi sang tuần mới."
-                    )
+                    raise RuntimeError(_describe_ineligible(pool, tracker, settings))
                 eligible_names = [a.name for a in eligible]
 
         last_error = ""

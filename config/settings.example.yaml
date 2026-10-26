@@ -3,10 +3,10 @@
 
 muse:
   base_url: "https://muse.ai"
-  # Transport gọi Muse: "rest" (REST cũ, đã biết sai) hoặc "gateway"
-  # (Noise WebSocket thật — xem docs/gateway-protocol.md). Mặc định "rest"
-  # cho tới khi gateway được kiểm chứng xong.
-  transport: "rest"
+  # Transport gọi Muse: "rest" (REST cũ, đã biết sai: 403) hoặc "gateway"
+  # (Noise WebSocket thật — xem docs/gateway-protocol.md). Mặc định
+  # "gateway" từ 2026-10-26 (vòng lặp đã khép kín live).
+  transport: "gateway"
   # API web của Muse không công khai — nếu Muse đổi API, sửa các path dưới
   # đây cho khớp với request thật quan sát được ở DevTools (muse.ai -> Network).
   # Login check: GET thẳng trang chủ (phụ: /api/me), không dùng /api/auth/session
