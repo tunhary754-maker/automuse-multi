@@ -126,6 +126,25 @@ class TestBootstrap(unittest.TestCase):
         with self.assertRaises(gw.GatewayError):
             gw.parse_gateway_init("<html>no init here</html>")
 
+    def test_fetch_init_missing_blob_hints_expired_cookie(self):
+        """Trang chủ 200 nhưng không có blob -> lỗi phải gợi ý kiểm tra
+        cookie (đã xác minh: cookie sống trả 200 + blob; cookie chết thì
+        bị đẩy về auth.muse.ai và cũng không có blob)."""
+        client = gw.GatewayClient(Account(name="acc test"), _settings())
+
+        class FakeResp:
+            status_code = 200
+            text = "<html>trang shell khong co blob gateway</html>"
+
+        class FakeSession:
+            def get(self, url, timeout=None):
+                return FakeResp()
+
+        client._http = lambda: FakeSession()  # noqa: E731 - test stub
+        with self.assertRaises(gw.GatewayError) as ctx:
+            client.fetch_init()
+        self.assertIn("accounts check", str(ctx.exception))
+
     def test_build_ws_url(self):
         url = gw.build_ws_url(
             "wss://11111111-2222-3333-4444-555555555555.metaaivm.com/",

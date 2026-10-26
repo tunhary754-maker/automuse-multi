@@ -132,6 +132,18 @@ def generate_clips(
         done = False
         for attempt in range(1, max_retries + 1):
             account = manager.pick(eligible_names or account_names) if not mock else None
+            if account is None and not mock:
+                # pick() trả None khi không còn acc nào chọn được — vd: acc
+                # duy nhất vừa vào cooldown sau lần lỗi trước. Đừng lặng lẽ
+                # rơi sang mock client rồi sinh clip giả mạo clip thật.
+                if not pool:
+                    raise RuntimeError(
+                        "Không có tài khoản nào dùng được"
+                        + (f" (không có acc enabled tên {account_names})"
+                           if account_names else "")
+                        + ". Thêm acc bằng `accounts add`."
+                    )
+                raise RuntimeError(_describe_ineligible(pool, tracker, settings))
             client = build_client(account, settings, mock=mock)
             who = account.name if account else "mock"
             log(f"{scene.id} (lần {attempt}/{max_retries}) qua acc '{who}' — {scene.title}")

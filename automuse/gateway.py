@@ -452,7 +452,19 @@ class GatewayClient:
                 f"Không tải được trang chủ muse.ai (HTTP {r.status_code}) — "
                 "cookie có thể đã hết hạn"
             )
-        self._init = parse_gateway_init(r.text)
+        try:
+            self._init = parse_gateway_init(r.text)
+        except GatewayError as e:
+            # Trang chủ trả 200 nhưng không có blob gateway: phiên đăng
+            # nhập không còn sống (vd: cookie chết nhưng server vẫn trả
+            # trang shell thay vì redirect về auth). Đã xác minh: cookie
+            # sống trả 200 + blob đầy đủ; không cookie/cookie giả thì
+            # bị đẩy về auth.muse.ai (400) và cũng không có blob.
+            raise GatewayError(
+                f"{e} — phiên đăng nhập có thể đã hết hạn (trang chủ trả về "
+                "nhưng không có thông tin gateway). Chạy `accounts check` để "
+                "kiểm tra cookie, lấy cookie mới nếu cần."
+            ) from None
         return self._init
 
     def refresh_token(self, gateway_url: str, vm_name: str | None) -> tuple[str, str | None]:
