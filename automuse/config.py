@@ -68,6 +68,18 @@ DEFAULT_SETTINGS = {
         "style": 0.0,
         "use_speaker_boost": True,
     },
+    "lipsync": {
+        # Khớp môi hậu kỳ bằng Sync Labs (sync.so) — chỉ chạy khi build
+        # có --lipsync và cảnh có lipsync: true. Model: lipsync-2
+        # (mặc định, nhanh/rẻ), lipsync-2-pro, sync-3 (tốt nhất, 4K),
+        # react-1 (biểu cảm, clip tối đa 15s). sync_mode "cut_off" cắt
+        # audio dài hơn video ở cuối clip; poll_timeout là thời gian chờ
+        # tối đa mỗi cảnh. Sync Labs tính phí theo giây ngoài gói tháng
+        # (xem sync.so/pricing). Key nhập bằng `lipsync set-key`.
+        "model": "lipsync-2",
+        "sync_mode": "cut_off",
+        "poll_timeout": 600,
+    },
     "video": {
         "width_16_9": 1280,
         "height_16_9": 720,
@@ -167,5 +179,19 @@ def elevenlabs_api_key() -> str:
         for line in env_file.read_text(encoding="utf-8").splitlines():
             line = line.strip()
             if line.startswith("ELEVENLABS_API_KEY="):
+                return line.split("=", 1)[1].strip().strip('"').strip("'")
+    return ""
+
+
+def get_sync_key() -> str:
+    """Lấy Sync Labs API key từ biến môi trường hoặc file .env ở repo root."""
+    key = os.environ.get("SYNC_API_KEY", "").strip()
+    if key:
+        return key
+    env_file = REPO_ROOT / ".env"
+    if env_file.exists():
+        for line in env_file.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line.startswith("SYNC_API_KEY="):
                 return line.split("=", 1)[1].strip().strip('"').strip("'")
     return ""

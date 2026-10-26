@@ -1,0 +1,48 @@
+# Kịch bản demo 2: PHIM TRUYỆN ~30s (3 cảnh x 10s)
+# Câu chuyện: Lan lái chuyến xe buýt cuối cùng trong đêm; Hùng là hành
+# khách duy nhất, một tháng nay cứ đi chuyến này.
+# - s02 là cảnh thoại cận mặt -> prompt đã viết sẵn kiểu "nói rồi cười
+#   gật đầu, miệng khép" (bài học từ demo 1: không cần sinh lại).
+# - Giọng: narrator Bá Lục, Hùng Minh Trung (2 giọng đã xác nhận ra tiếng Việt).
+# Chạy thật: python cli.py build --script scripts/test-phim-truyen-30s-2.yaml --accounts acc1 --no-tts
+title: "Phim truyện — Chuyến xe cuối cùng (demo 2)"
+kind: movie
+aspect: "16:9"
+fps: 30
+default_voice: narrator
+voices:
+  narrator: "KJmTHSk3TjHp87WObL98"   # Bá Lục — nam miền Bắc, Vietnamese Narrator
+  Lan: "bGrXyJJO3GAb4CT9ltbv"        # Bảo Ngọc — nữ miền Nam, nhẹ nhàng
+  Hùng: "FTYCiQT21H9XQvhRu0ch"      # Minh Trung — nam miền Nam, giọng trầm ấm
+characters:
+  Lan:
+    description: "young Vietnamese woman, long black hair in a low ponytail, dark green uniform jacket"
+  Hùng:
+    description: "young Vietnamese man, short black hair, round glasses, grey hoodie, holding a worn paperback book"
+music: ""
+
+scenes:
+  - id: s01
+    title: "Chuyến xe cuối"
+    duration: 10
+    visual: "Interior of a city bus late at night, a young woman driving, a young man sitting alone in the back row reading a book, city lights streaking through the windows, cinematic film still, moody lighting"
+    narration: "Chuyến xe cuối cùng rời bến lúc mười một giờ đêm. Hôm nào cũng vậy, chỉ còn một hành khách ngồi ở ghế cuối."
+    voice: narrator
+    character: Lan
+
+  - id: s02
+    title: "Hành khách cuối"
+    duration: 10
+    visual: "Medium close-up of a young man on a night bus speaking warmly to the driver, his mouth moving naturally as he talks, then he stops speaking, smiles gently and nods with his mouth closed, city lights bokeh through the window, romantic drama film style, speaking to camera"
+    narration: "Cô có biết không, tôi đi chuyến này một tháng rồi — chỉ vì thích ngồi xe lúc thành phố yên lặng nhất."
+    voice: Hùng
+    character: Hùng
+    lipsync: true
+
+  - id: s03
+    title: "Không chỉ một hành khách"
+    duration: 10
+    visual: "Close-up of a young woman driver smiling softly while glancing at the rearview mirror, warm dashboard light on her face, the young man reading in soft-focus background, night city lights outside, romantic drama film style"
+    narration: "Lan bật cười, nhìn vào gương chiếu hậu. Có lẽ chuyến xe cuối cùng này sẽ không chỉ chở một hành khách nữa."
+    voice: narrator
+    character: Lan

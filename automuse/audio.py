@@ -87,6 +87,97 @@ def build_narration_timeline(
     return out
 
 
+# Tiếng gốc của clip trộn ở mức 0.7: đã hiệu chuẩn trên bản tay tối
+# 2026-10-26 (tập "Vua của thảo nguyên") — khoảng nghỉ giữa các câu
+# thuyết minh đo được -24,7 dB, đúng mức bản tay user đã nghe (-24,6 dB).
+# Bản tay trộn bed mono ở 1.0 (ffmpeg tự hạ -3 dB khi chuyển mono sang
+# stereo trong amix); bed của pipeline đã là stereo đủ mức nên 0.7 mới
+# ra cùng mức đó.
+NATIVE_BED_VOLUME = 0.7
+
+
+def clip_has_audio(path: str | Path) -> bool:
+    """Clip có track audio không (clip sinh ra từ Muse thường có)."""
+    cmd = [
+        "ffprobe", "-v", "error", "-select_streams", "a",
+        "-show_entries", "stream=index", "-of", "csv=p=0", str(path),
+    ]
+    out = subprocess.run(cmd, capture_output=True, text=True)
+    return bool(out.stdout.strip())
+
+
+def _audio_channels(path: str | Path) -> int:
+    """Số kênh của track audio đầu tiên (0 nếu không có)."""
+    cmd = [
+        "ffprobe", "-v", "error", "-select_streams", "a:0",
+        "-show_entries", "stream=channels", "-of", "csv=p=0", str(path),
+    ]
+    out = subprocess.run(cmd, capture_output=True, text=True)
+    try:
+        return int(out.stdout.strip())
+    except ValueError:
+        return 0
+
+
+def extract_native_bed(
+    sources: list[tuple[Path | None, float]],
+    out_path: str | Path,
+) -> Path | None:
+    """Ghép tiếng gốc của từng clip thành một track nền dài đúng tổng thời lượng.
+
+    sources: [(clip, duration_giay), ...] theo thứ tự cảnh; clip=None
+    nghĩa là cảnh đó dùng khoảng lặng (vd: cảnh đã khớp môi — tiếng
+    trong clip chính là lời thoại, trộn lại sẽ thành nói đúp).
+    Trả None khi không clip nào có tiếng (clip mock / clip câm) — lúc đó
+    pipeline giữ nguyên hành vi cũ (chỉ lời thoại, không nền).
+    """
+    out = Path(out_path)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    parts: list[Path] = []
+    any_audio = False
+    with tempfile.TemporaryDirectory(prefix="automuse-native-bed-") as tmp:
+        tmpdir = Path(tmp)
+        for i, (clip, dur) in enumerate(sources):
+            part = tmpdir / f"part{i:02d}.wav"
+            if clip is not None and clip_has_audio(clip):
+                any_audio = True
+                # Tiếng gốc của Muse là mono 24kHz. Ép thẳng sang stereo
+                # bằng -ac 2 sẽ làm ffmpeg chia năng lượng (-3 dB); nhân
+                # đôi kênh bằng pan giữ nguyên mức (đã đo: -31,2 dB đúng
+                # bằng bản trích tay, thay vì -34,2 dB khi dùng -ac 2).
+                if _audio_channels(clip) == 1:
+                    af = (f"aresample=44100,pan=stereo|c0=c0|c1=c0,"
+                          f"apad=whole_dur={dur:.2f}")
+                else:
+                    af = f"aresample=44100,apad=whole_dur={dur:.2f}"
+                cmd = [
+                    "ffmpeg", "-y", "-i", str(clip), "-vn",
+                    "-af", af,
+                    "-t", f"{dur:.2f}", "-c:a", "pcm_s16le",
+                    "-ar", "44100", "-ac", "2", str(part),
+                ]
+            else:
+                cmd = [
+                    "ffmpeg", "-y", "-f", "lavfi", "-i",
+                    f"anullsrc=r=44100:cl=stereo:d={dur:.2f}",
+                    "-c:a", "pcm_s16le", str(part),
+                ]
+            run_ffmpeg(cmd)
+            parts.append(part)
+        if not any_audio:
+            return None
+        list_file = tmpdir / "concat.txt"
+        list_file.write_text(
+            "".join(f"file '{p.resolve()}'\n" for p in parts), encoding="utf-8"
+        )
+        cmd = [
+            "ffmpeg", "-y", "-f", "concat", "-safe", "0",
+            "-i", str(list_file), "-c", "copy", str(out),
+        ]
+        run_ffmpeg(cmd)
+    return out
+
+
 def mix_with_music(
     narration_wav: str | Path,
     music_path: str | Path | None,
@@ -108,8 +199,8 @@ def mix_with_music(
         "ffmpeg", "-y",
         "-i", str(narration_wav), "-i", str(music_path),
         "-filter_complex",
-        f"[1:a]volume={music_volume},aloop=loop=-1:size=2e+09[m];"
-        f"[0:a][m]amix=inputs=2:normalize=0,"
+        f"[1:a]volume={music_volume}[m];"
+        f"[0:a][m]amix=inputs=2:duration=first:normalize=0,"
         f"loudnorm=I=-16:TP=-1.5:LRA=11[aout]",
         "-map", "[aout]", "-c:a", "pcm_s16le", str(out),
     ]

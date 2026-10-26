@@ -13,6 +13,7 @@
     <span class="badge" id="badge-ffmpeg">ffmpeg …</span>
     <span class="badge" id="badge-accounts">acc …</span>
     <span class="badge" id="badge-elevenlabs">ElevenLabs …</span>
+    <span class="badge" id="badge-lipsync">Sync Labs …</span>
   </div>
 </header>
 
@@ -77,6 +78,17 @@
       <span class="msg" id="el-settings-msg"></span>
       <audio id="el-test-audio" controls style="width:100%;display:none"></audio>
       <span class="msg" id="el-msg"></span>
+    </div>
+    <div class="card form" id="lipsync-card">
+      <h2 style="margin-top:0">Khớp môi — Sync Labs</h2>
+      <div class="row">
+        <label class="grow">API key
+          <input type="password" id="sync-key" placeholder="sk_... (chỉ lưu trên máy này)" autocomplete="off">
+        </label>
+        <button class="btn primary" id="btn-save-sync-key" style="align-self:flex-end">Lưu key</button>
+      </div>
+      <span class="hint">Dùng khi build có tick “Khớp môi”: clip của cảnh nào có <code>lipsync: true</code> sẽ được vẽ lại miệng khớp với giọng đọc. Sync Labs tính phí theo giây ngoài gói tháng.</span>
+      <span class="msg" id="sync-msg"></span>
     </div>
     <h2>Video mới nhất</h2>
     <div id="latest-outputs" class="outputs-grid"></div>
@@ -152,6 +164,7 @@
         <label><input type="checkbox" name="no_tts"> Không lồng tiếng</label>
         <label><input type="checkbox" name="no_iris"> Không iris-out</label>
         <label><input type="checkbox" name="resume"> Chạy tiếp từ chỗ dừng</label>
+        <label><input type="checkbox" name="lipsync"> Khớp môi (lip-sync) — cảnh có lipsync: true</label>
       </div>
       <div class="row">
         <label class="grow">Thư mục đầu ra (tùy chọn) <input name="out" placeholder="output/ten-phim (để trống = tự đặt theo tên kịch bản)"></label>

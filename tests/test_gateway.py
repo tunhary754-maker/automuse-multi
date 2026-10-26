@@ -296,6 +296,7 @@ class FakeGateway:
         self.handshook = False
         self._asm: dict[int, dict] = {}
         self.stream_ids_seen: list[int] = []
+        self.stream_bodies: list[bytes] = []  # body JSON của /chat/stream
         # Test hooks: subscribe có kèm record video không; chat.history
         # có trả delta.presentation không; fs.raw trả bytes nào.
         self.subscribe_video = True
@@ -389,6 +390,7 @@ class FakeGateway:
         elif path.startswith("/fs/raw/"):
             self._emit_response(sid, 200, self.fs_raw_bytes, True, emit)
         elif path == "/chat/stream":
+            self.stream_bodies.append(req["body"])
             ack = json.dumps({"ok": True, "result": {
                 "message_id": "m1", "session_id": "s1"}}).encode() + b"\n"
             self._emit_response(sid, 200, ack, False, emit)
@@ -521,6 +523,92 @@ class TestGatewayClientLive(unittest.TestCase):
                         "a lion at dawn", aspect="16:9", duration=8,
                         out_path=Path(d) / "s01.mp4", history_timeout=0.2)
                 self.assertIn("chat.history", str(cm.exception))
+        finally:
+            client.close()
+
+    def test_generate_video_with_reference_image_sends_image_item(self):
+        # Ảnh tham chiếu đi INLINE base64 trong chat.stream items: ảnh
+        # trước, text sau; text có câu dặn dùng ảnh làm mẫu nhân vật.
+        import base64 as _b64
+
+        png_1x1 = _b64.b64decode(
+            "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8"
+            "Xw8AAwMCAO+ip1sAAAAASUVORK5CYII=")
+        client, fake = self._client()
+        try:
+            def _fake_dl(_self, _url, _dest):
+                _dest.write_bytes(b"FAKEVIDEO")
+                return _dest
+
+            with mock.patch.object(gw.GatewayClient, "_download_video",
+                                   _fake_dl):
+                with tempfile.TemporaryDirectory() as d:
+                    img = Path(d) / "model-sheet.png"
+                    img.write_bytes(png_1x1)
+                    dest = client.generate_video(
+                        "a rat sniffs cheese", aspect="16:9", duration=8,
+                        reference_image=img, out_path=Path(d) / "s01.mp4")
+                    self.assertEqual(dest.read_bytes(), b"FAKEVIDEO")
+            self.assertEqual(len(fake.stream_bodies), 1)
+            sent = json.loads(fake.stream_bodies[0])
+            items = sent["items"]
+            self.assertEqual(len(items), 2)
+            self.assertEqual(items[0]["type"], "image")
+            self.assertEqual(items[0]["mime_type"], "image/png")
+            self.assertEqual(items[0]["filename"], "model-sheet.png")
+            self.assertEqual(_b64.b64decode(items[0]["data_base64"]), png_1x1)
+            self.assertEqual(items[1]["type"], "text")
+            self.assertIn("Use the attached image as the character reference",
+                          items[1]["text"])
+        finally:
+            client.close()
+
+    def test_generate_video_without_reference_image_sends_text_only(self):
+        client, fake = self._client()
+        try:
+            def _fake_dl(_self, _url, _dest):
+                _dest.write_bytes(b"FAKEVIDEO")
+                return _dest
+
+            with mock.patch.object(gw.GatewayClient, "_download_video",
+                                   _fake_dl):
+                with tempfile.TemporaryDirectory() as d:
+                    client.generate_video(
+                        "a lion at dawn", aspect="16:9", duration=8,
+                        out_path=Path(d) / "s01.mp4")
+            sent = json.loads(fake.stream_bodies[0])
+            items = sent["items"]
+            self.assertEqual(len(items), 1)
+            self.assertEqual(items[0]["type"], "text")
+            self.assertNotIn("character reference", items[0]["text"])
+        finally:
+            client.close()
+
+    def test_generate_video_reference_image_missing_raises(self):
+        client, fake = self._client()
+        try:
+            with tempfile.TemporaryDirectory() as d:
+                with self.assertRaises(gw.GatewayError) as cm:
+                    client.generate_video(
+                        "a lion at dawn", aspect="16:9", duration=8,
+                        reference_image=Path(d) / "nope.jpg",
+                        out_path=Path(d) / "s01.mp4")
+                self.assertIn("Không thấy file ảnh tham chiếu", str(cm.exception))
+            self.assertEqual(fake.stream_bodies, [])  # chưa gửi gì đi
+        finally:
+            client.close()
+
+    def test_generate_video_reference_image_bad_extension_raises(self):
+        client, fake = self._client()
+        try:
+            with tempfile.TemporaryDirectory() as d:
+                img = Path(d) / "sheet.gif"
+                img.write_bytes(b"GIF89a")
+                with self.assertRaises(gw.GatewayError) as cm:
+                    client.generate_video(
+                        "a lion at dawn", aspect="16:9", duration=8,
+                        reference_image=img, out_path=Path(d) / "s01.mp4")
+                self.assertIn("JPEG hoặc PNG", str(cm.exception))
         finally:
             client.close()
 

@@ -84,7 +84,7 @@ class ElevenLabsClient:
         r = self.session.get(f"{ELEVENLABS_BASE}/voices/{voice_id}", timeout=30)
         if r.status_code == 401:
             raise ElevenLabsError("API key ElevenLabs không đúng (401)")
-        if r.status_code == 404:
+        if r.status_code in (400, 404):
             raise ElevenLabsError(f"Không thấy giọng có voice_id '{voice_id}'")
         r.raise_for_status()
         return r.json()

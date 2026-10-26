@@ -13,6 +13,7 @@ API:
     POST /api/accounts/<name>/check        kiểm tra proxy + cookie
     GET  /api/voices                      liệt kê giọng ElevenLabs
     POST /api/elevenlabs/key              nhập key ElevenLabs {key} (kiểm tra rồi mới lưu .env)
+    POST /api/lipsync/key                 nhập key Sync Labs {key} (kiểm tra rồi mới lưu .env)
     POST /api/voices/default              đặt giọng mặc định {voice}
     POST /api/voices/settings             cài đặt giọng chi tiết {voice?, speed?, stability?, similarity_boost?, style?, model?, use_speaker_boost?}
     POST /api/voices/test                 nghe thử giọng {voice, text} -> file mp3
@@ -46,11 +47,13 @@ from ..config import (
     DEFAULT_OUTPUT_DIR,
     REPO_ROOT,
     elevenlabs_api_key,
+    get_sync_key,
     load_settings,
     save_env_key,
     save_user_settings,
 )
 from ..elevenlabs import ElevenLabsClient, ElevenLabsError, build_elevenlabs
+from ..lipsync import SyncError, SyncLipSyncClient
 from ..muse_client import build_client
 from ..script import load_script, validate
 from ..usage import UsageTracker
@@ -234,6 +237,8 @@ def _run_build_job(job_id: str, params: dict) -> None:
             account_names=params.get("accounts") or None,
             music=params.get("music") or None,
             api_key=elevenlabs_api_key(),
+            lipsync=bool(params.get("lipsync")),
+            sync_api_key=get_sync_key(),
         )
         job["manifest"] = manifest
         job["status"] = "done"
@@ -319,6 +324,7 @@ class StudioHandler(BaseHTTPRequestHandler):
                 "accounts": len(mgr.accounts),
                 "accounts_ready": len(mgr.enabled_accounts()),
                 "elevenlabs_configured": bool(elevenlabs_api_key()),
+                "lipsync_configured": bool(get_sync_key()),
                 "elevenlabs_default_voice": load_settings().get("elevenlabs", {}).get("default_voice", "narrator"),
                 "elevenlabs_settings": {
                     "default_voice": load_settings().get("elevenlabs", {}).get("default_voice", "narrator"),
@@ -477,6 +483,22 @@ class StudioHandler(BaseHTTPRequestHandler):
                 return _json(self, {"error": str(e)}, 400)
             save_env_key("ELEVENLABS_API_KEY", key)
             return _json(self, {"ok": True, "voices": len(voices)})
+
+        if path == "/api/lipsync/key":
+            body = _read_json(self)
+            key = (body.get("key") or "").strip()
+            if not key:
+                return _json(self, {"error": "thiếu key"}, 400)
+            try:
+                ok = SyncLipSyncClient(key).check_key()
+            except SyncError as e:
+                return _json(self, {"error": str(e)}, 400)
+            except Exception as e:  # noqa: BLE001
+                return _json(self, {"error": str(e)}, 400)
+            if not ok:
+                return _json(self, {"error": "key không đúng (401)"}, 400)
+            save_env_key("SYNC_API_KEY", key)
+            return _json(self, {"ok": True})
 
         if path == "/api/voices/default":
             body = _read_json(self)

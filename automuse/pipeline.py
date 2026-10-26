@@ -17,9 +17,17 @@ import time
 from pathlib import Path
 
 from .accounts import AccountManager
-from .audio import build_narration_timeline, mix_with_music, probe_duration, write_srt
-from .config import DEFAULT_CACHE_DIR, DEFAULT_OUTPUT_DIR
+from .audio import (
+    NATIVE_BED_VOLUME,
+    build_narration_timeline,
+    extract_native_bed,
+    mix_with_music,
+    probe_duration,
+    write_srt,
+)
+from .config import DEFAULT_CACHE_DIR, DEFAULT_OUTPUT_DIR, get_sync_key
 from .elevenlabs import build_elevenlabs, estimate_speech_duration
+from .lipsync import build_lipsync
 from .muse_client import build_client
 from .script import Scene, Script, load_script, validate
 from .usage import UsageTracker
@@ -193,8 +201,11 @@ def run_build(
     resume: bool = False,
     account_names: list[str] | None = None,
     music: str | None = None,
+    native_bed: bool | None = None,
     api_key: str = "",
     tracker: UsageTracker | None = None,
+    lipsync: bool = False,
+    sync_api_key: str = "",
 ) -> dict:
     """Chạy toàn bộ pipeline, trả về manifest dict."""
     settings = settings or {}
@@ -204,6 +215,29 @@ def run_build(
     errors = validate(script)
     if errors:
         raise ValueError("Kịch bản lỗi:\n- " + "\n- ".join(errors))
+    # -- Nhân vật đồng nhất: khóa mô tả cố định vào visual trước khi sinh
+    # clip (cả visual viết tay cũng được khóa), rồi báo cảnh báo nếu có
+    # nhân vật chưa khai báo hoặc ảnh tham chiếu không thấy trên đĩa.
+    from .characters import apply_character_lock, character_warnings
+
+    apply_character_lock(script)
+    _locked_count = sum(
+        1 for s in script.scenes
+        if (s.character or "").strip()
+        and (s.character or "").strip() in (script.characters or {})
+    )
+    if _locked_count:
+        log(f"Khóa mô tả nhân vật cho {_locked_count} cảnh")
+    for _w in character_warnings(script, Path(script_path).resolve().parent):
+        log(f"  ! {_w}")
+    # -- Khớp môi: bật mà chưa có key (và không phải mock) thì dừng ngay,
+    # đừng chạy hết pipeline rồi mới báo.
+    sync_key = sync_api_key or get_sync_key()
+    if lipsync and not mock and not sync_key:
+        raise RuntimeError(
+            "Chưa có key Sync Labs — chạy `lipsync set-key` để nhập key "
+            "trước khi build với --lipsync."
+        )
 
     out_dir = Path(out_dir) if out_dir else DEFAULT_OUTPUT_DIR / Path(script_path).stem
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -258,6 +292,67 @@ def run_build(
         tracker=tracker,
     )
 
+    # -- 2b. Khớp môi hậu kỳ (Sync Labs) ------------------------------
+    # Chỉ cảnh nào có lipsync: true VÀ có file TTS mới được sync.
+    # Lỗi ở bước này không bao giờ làm hỏng build: giữ nguyên clip gốc,
+    # ghi "failed" vào manifest để biết cảnh nào chưa khớp môi.
+    for info in infos:
+        info["lipsync"] = "skipped"
+    if lipsync:
+        lip_client = build_lipsync(sync_key, settings, mock=mock)
+        lip_dir = out_dir / "clips_lipsync"
+        lip_dir.mkdir(parents=True, exist_ok=True)
+        for i, scene in enumerate(script.scenes):
+            if not scene.lipsync or scene.id not in tts_files:
+                continue
+            dest = lip_dir / f"{scene.id}.mp4"
+            log(f"Khớp môi {scene.id} — {scene.title}")
+            try:
+                lip_client.sync(clips[i], tts_files[scene.id], dest)
+                clips[i] = dest
+                infos[i]["lipsync"] = "ok"
+                log(f"  Khớp môi {scene.id} xong")
+            except Exception as e:  # noqa: BLE001 - giữ clip gốc
+                infos[i]["lipsync"] = "failed"
+                log(f"  ! Khớp môi {scene.id} lỗi, giữ clip gốc: {e}")
+
+    # -- 2c. Tiếng gốc của clip làm nền ------------------------------
+    # Clip sinh ra vốn đã có tiếng của nó (khớp từng cảnh: cảnh rượt
+    # đuổi tự nó to và gấp hơn cảnh bình minh). Pipeline cũ bỏ hết ở
+    # bước chuẩn hóa (-an) rồi đắp nhạc/ambience ngoài vào nên nghe giả
+    # (2026-10-26, tập "Vua của thảo nguyên" — user chê "trông giả vcl").
+    # Giờ giữ tiếng gốc làm nền dưới lời dẫn. Nhạc ngoài (nếu có) vẫn
+    # thắng: user đã chọn nhạc thì dùng nhạc, không đắp thêm tiếng gốc.
+    # Cảnh đã khớp môi thì dùng khoảng lặng — tiếng trong clip chính là
+    # lời thoại, trộn lại sẽ thành nói đúp.
+    bed_path: Path | None = None
+    audio_bed = "none"
+    music_path = music or script.music or None
+    if music_path:
+        audio_bed = "music"
+    elif tts_files:
+        use_native = (
+            native_bed if native_bed is not None
+            else (script.kind == "documentary")
+        )
+        if use_native:
+            candidate = audio_dir / "native_bg.wav"
+            if resume and candidate.exists() and candidate.stat().st_size > 0:
+                log("Đã có tiếng gốc (resume), dùng lại")
+                bed_path = candidate
+            else:
+                sources = [
+                    (None if infos[i]["lipsync"] == "ok" else clips[i],
+                     scene_durations[scene.id])
+                    for i, scene in enumerate(script.scenes)
+                ]
+                log("Trích tiếng gốc của từng clip làm nền...")
+                bed_path = extract_native_bed(sources, candidate)
+            if bed_path is not None:
+                audio_bed = "native"
+            else:
+                log("  (clip không có tiếng gốc — bỏ qua nền)")
+
     # -- 3. Chuẩn hóa + nối -------------------------------------------
     norm_dir = out_dir / "clips_norm"
     norm_dir.mkdir(parents=True, exist_ok=True)
@@ -289,10 +384,19 @@ def run_build(
         narration_wav = audio_dir / "narration.wav"
         log("Ghép timeline lời thoại...")
         build_narration_timeline(segments, total, narration_wav)
-        music_path = music or script.music or None
         final_audio = audio_dir / "final_audio.wav"
-        log("Trộn nhạc nền + chuẩn hóa âm lượng...")
-        mix_with_music(narration_wav, music_path, final_audio)
+        if music_path:
+            log("Trộn nhạc nền + chuẩn hóa âm lượng...")
+            mix_with_music(narration_wav, music_path, final_audio)
+        elif bed_path is not None:
+            log("Trộn tiếng gốc của clip + chuẩn hóa âm lượng...")
+            mix_with_music(
+                narration_wav, bed_path, final_audio,
+                music_volume=NATIVE_BED_VOLUME,
+            )
+        else:
+            log("Chuẩn hóa âm lượng lời thoại...")
+            mix_with_music(narration_wav, None, final_audio)
         srt_entries = [
             (starts[i], starts[i] + tts_durations.get(s.id, scene_durations[s.id]),
              s.narration)
@@ -335,6 +439,7 @@ def run_build(
         "aspect": script.aspect,
         "scenes": infos,
         "scene_durations": scene_durations,
+        "audio_bed": audio_bed,
         "final": str(final_path),
         "poster": str(poster_path) if poster_path else None,
         "subtitles": str(srt_path) if srt_path else None,

@@ -1,5 +1,10 @@
 # Kịch bản mẫu: PHIM TRUYỆN NGẮN (nhiều nhân vật, thoại đối đáp)
 # Mỗi nhân vật gắn 1 giọng ElevenLabs riêng trong bảng voices.
+# Nhân vật đồng nhất: bảng characters khóa mô tả cố định (tiếng Anh) vào
+# mọi cảnh có nhân vật đó, để nhân vật giống nhau qua các cảnh. Ảnh tham
+# chiếu (image) đặt file vào assets/characters/ rồi thêm reference_image
+# vào cảnh — gateway đính kèm ảnh inline base64 khi sinh clip (file phải
+# tồn tại, không thì build thật lỗi rõ trước khi tốn quota).
 # Chạy thử: python cli.py build --script scripts/phim.yaml --mock
 title: "Phim truyện ngắn — Tập mẫu"
 kind: movie
@@ -10,6 +15,13 @@ voices:
   narrator: "21m00Tcm4TlvDq8ikWAM"   # đổi thành voice_id thật của bạn
   An: "EXAVITQu4vr4xnSDxMaL"        # ví dụ: Bella
   Bình: "TxGEqnHWKZ17j1QkYp7w"      # ví dụ: Josh
+characters:
+  An:
+    description: "young Vietnamese woman, shoulder-length black hair, yellow raincoat, red scarf"
+    image: "assets/characters/an.png"
+  Bình:
+    description: "young Vietnamese man, short black hair, round glasses, blue shirt, holding a black umbrella"
+    image: "assets/characters/binh.png"
 music: ""
 
 scenes:
@@ -19,6 +31,7 @@ scenes:
     visual: "Rainy Saigon street at night, neon signs reflecting on wet asphalt, a young woman with umbrella waiting under an awning, cinematic film still, moody lighting"
     narration: "Sài Gòn, mười một giờ đêm. Cơn mưa bất chợt khiến An phải trú dưới mái hiên này."
     voice: narrator
+    character: An
 
   - id: s02
     title: "Câu nói đầu tiên"
@@ -27,3 +40,7 @@ scenes:
     narration: "Cô trú mưa ở đây à? Tôi có hai chiếc ô, cô lấy một chiếc đi."
     voice: Bình
     character: Bình
+    reference_image: "assets/characters/binh.png"
+    # Cảnh thoại cận mặt: build với --lipsync để Sync Labs vẽ lại miệng
+    # khớp với giọng đọc (cần key: `lipsync set-key`).
+    lipsync: true

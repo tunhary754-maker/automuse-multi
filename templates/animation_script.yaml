@@ -1,0 +1,63 @@
+# Kịch bản mẫu: HOẠT HÌNH CÂM SLAPSTICK (phong cách Larva, 30s / 6 cảnh)
+# Không thoại, không lời dẫn — chỉ hành động + SFX. Mỗi cảnh 5s.
+# Nhân vật đồng nhất: bảng characters khóa mô tả cố định (tiếng Anh) vào
+# mọi cảnh có nhân vật đó. Ảnh tham chiếu (image) đặt file vào
+# assets/characters/ rồi thêm reference_image vào cảnh — gateway đính kèm
+# ảnh inline base64 khi sinh clip (file phải tồn tại).
+# Chạy thử: python cli.py build --script scripts/hoat-hinh.yaml --mock
+title: "Hoạt hình — Tập mẫu (30s)"
+kind: animation
+aspect: "16:9"
+fps: 30
+default_voice: narrator
+characters:
+  Chuột Cống:
+    description: "chubby grey sewer rat, big belly, pink nose and tail"
+  Gián Tăng Động:
+    description: "small hyperactive brown cockroach, huge eyes, twitchy, red sneakers"
+  Bồ Câu Ngáo Ngơ:
+    description: "goofy grey city pigeon, googly cross-eyes, green-purple neck"
+music: ""
+
+scenes:
+  - id: s01
+    title: "Miếng pho mát"
+    duration: 5
+    visual: "A chubby grey sewer rat sniffs a piece of cheese in a dark brick alley, eyes widening with hunger, Larva-style silent slapstick 3D animation"
+    sfx: "sniff sniff, boing"
+    character: Chuột Cống
+
+  - id: s02
+    title: "Gián lao tới"
+    duration: 5
+    visual: "A hyperactive brown cockroach zips in a blur and snatches the cheese, the rat spins around dizzy, Larva-style silent slapstick 3D animation"
+    sfx: "whoosh, zip, slide whistle"
+    character: Gián Tăng Động
+
+  - id: s03
+    title: "Bồ câu ngáo ngơ"
+    duration: 5
+    visual: "A goofy cross-eyed pigeon drops from above and sits on the cheese, the cockroach pushes with all its might and slips, Larva-style silent slapstick 3D animation"
+    sfx: "thud, squeak, boing"
+    character: Bồ Câu Ngáo Ngơ
+
+  - id: s04
+    title: "Giằng co"
+    duration: 5
+    visual: "The rat, the cockroach and the pigeon tug the cheese in three directions, stretching it like rubber, Larva-style silent slapstick 3D animation"
+    sfx: "stretch, creak, boing"
+    character: Chuột Cống
+
+  - id: s05
+    title: "Pho mát bay"
+    duration: 5
+    visual: "The cheese slips and flies into the air, all three characters stare up cross-eyed as it spins, Larva-style silent slapstick 3D animation"
+    sfx: "whoosh, whistle down"
+    character: Gián Tăng Động
+
+  - id: s06
+    title: "Rơi trúng đầu"
+    duration: 5
+    visual: "The cheese lands on the rat's head like a hat, the cockroach and pigeon burst out laughing, the rat sighs, iris out, Larva-style silent slapstick 3D animation"
+    sfx: "plop, laughter, slide whistle"
+    character: Chuột Cống

@@ -23,6 +23,7 @@ the browser's IndexedDB and are out of scope.
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 import random
@@ -389,6 +390,60 @@ def build_ws_url(gateway_url: str, token: str, notary_token: str | None,
     params.append(("app_id", APP_ID))
     params.append(("request_id", request_id or str(uuid.uuid4())))
     return f"wss://{GATEWAY_LB_HOST}{NOISE_WS_PATH}?{urlencode(params)}"
+
+
+# --------------------------------------------------------------------------
+# Ảnh tham chiếu trong chat.stream
+# --------------------------------------------------------------------------
+
+# Web UI gửi ảnh đính kèm INLINE base64 trong items của chat.stream
+# (không qua bước upload): {type:"image", mime_type, data_base64,
+# filename} — ảnh trước, text sau. Chỉ JPEG/PNG (web UI chuẩn hóa ảnh
+# về JPEG q=0.85, tối đa 4096px / 16MP); file đã đúng chuẩn của web UI
+# thì gửi thẳng. Có Pillow thì ảnh quá khổ được thu nhỏ thay vì từ chối.
+_IMAGE_MIME = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png"}
+_MAX_INLINE_IMAGE_BYTES = 10 * 1024 * 1024
+_MAX_IMAGE_SIDE_PX = 4096
+_MAX_IMAGE_MEGAPIXELS = 16
+
+
+def _image_item(path) -> dict:
+    """Build một chat.stream image item từ file ảnh JPEG/PNG local."""
+    p = Path(path)
+    if not p.exists():
+        raise GatewayError(f"Không thấy file ảnh tham chiếu: {p}")
+    mime = _IMAGE_MIME.get(p.suffix.lower())
+    if not mime:
+        raise GatewayError(f"Ảnh tham chiếu phải là JPEG hoặc PNG: {p}")
+    data = p.read_bytes()
+    if len(data) > _MAX_INLINE_IMAGE_BYTES:
+        data, mime = _shrink_image(data, p)
+    return {"type": "image", "mime_type": mime,
+            "data_base64": base64.b64encode(data).decode(),
+            "filename": p.name}
+
+
+def _shrink_image(data: bytes, path: Path) -> tuple[bytes, str]:
+    """Thu nhỏ ảnh quá lớn về JPEG q=0.85 (cần Pillow, không có thì lỗi rõ)."""
+    try:
+        from PIL import Image  # type: ignore
+    except ImportError:
+        raise GatewayError(
+            f"Ảnh tham chiếu quá lớn ({len(data)} byte) — thu nhỏ ảnh "
+            f"dưới {_MAX_INLINE_IMAGE_BYTES // (1024 * 1024)}MB hoặc cài "
+            "Pillow để tool tự thu nhỏ.")
+    import io
+
+    im = Image.open(io.BytesIO(data))
+    w, h = im.size
+    if max(w, h) > _MAX_IMAGE_SIDE_PX or w * h > _MAX_IMAGE_MEGAPIXELS * 1_000_000:
+        scale = min(_MAX_IMAGE_SIDE_PX / max(w, h),
+                    (_MAX_IMAGE_MEGAPIXELS * 1_000_000 / (w * h)) ** 0.5)
+        im = im.resize((max(1, int(w * scale)), max(1, int(h * scale))),
+                       Image.LANCZOS)
+    buf = io.BytesIO()
+    im.convert("RGB").save(buf, "JPEG", quality=85)
+    return buf.getvalue(), "image/jpeg"
 
 
 # --------------------------------------------------------------------------
@@ -875,15 +930,21 @@ class GatewayClient:
     def generate_video(self, prompt: str, aspect: str = "16:9", duration: int = 5,
                        reference_image=None, out_path=None,
                        history_timeout: float = 120) -> Path:
+        items: list[dict] = []
         if reference_image:
-            raise GatewayError(
-                "Gateway chat.stream chưa hỗ trợ reference_image (file_ref)"
-            )
+            # Ảnh tham chiếu gửi INLINE base64 trong cùng items với text
+            # (đúng cách web UI gửi ảnh đính kèm) — ảnh trước, text sau.
+            items.append(_image_item(reference_image))
         dest = Path(out_path) if out_path else Path("video.mp4")
         dest.parent.mkdir(parents=True, exist_ok=True)
         text = f"Create a {duration}-second video ({aspect} aspect ratio): {prompt}"
+        if reference_image:
+            text += (" Use the attached image as the character reference: "
+                     "keep the same character designs, colors and style "
+                     "as in the image.")
+        items.append({"type": "text", "text": text})
         params = {
-            "items": [{"type": "text", "text": text}],
+            "items": items,
             "node_id": self._device_id(),
             "capabilities": {
                 "client_id": "hatch-web",

@@ -8,7 +8,14 @@ Ví dụ:
   python cli.py voices set-key
   python cli.py voices list
   python cli.py voices test Rachel
+  python cli.py lipsync set-key
+  python cli.py lipsync sync --video clips/s02.mp4 --audio audio/s02.mp3 --out clips/s02-lipsync.mp4
+  python cli.py build --script scripts/phim.yaml --lipsync
   python cli.py init --kind documentary --out scripts/dong-vat.yaml
+  python cli.py prompts --script scripts/dong-vat.yaml
+  python cli.py prompts --script scripts/dong-vat.yaml --account acc1 --apply
+  python cli.py characters show --script scripts/phim.yaml
+  cat kich-ban.txt | python cli.py prompts --kind documentary
   python cli.py build --script examples/the-gioi-dong-vat.yaml --mock
   python cli.py build --script scripts/phim.yaml --out output/phim1
 """
@@ -29,6 +36,7 @@ from automuse.config import (  # noqa: E402
     ACCOUNTS_FILE,
     REPO_ROOT,
     elevenlabs_api_key,
+    get_sync_key,
     load_settings,
     save_env_key,
     save_user_settings,
@@ -38,6 +46,12 @@ from automuse.elevenlabs import (  # noqa: E402
     ElevenLabsError,
     build_elevenlabs,
     estimate_speech_duration,
+)
+from automuse.lipsync import (  # noqa: E402
+    KNOWN_MODELS,
+    SyncError,
+    SyncLipSyncClient,
+    build_lipsync,
 )
 from automuse.muse_client import build_client  # noqa: E402
 from automuse.pipeline import generate_clips, log, run_build  # noqa: E402
@@ -412,13 +426,254 @@ def cmd_voices_test(args) -> int:
     return 0
 
 
+# ---------------------------------------------------------------- lipsync
+
+def cmd_lipsync_show(_args) -> int:
+    settings = load_settings()
+    cfg = settings.get("lipsync", {})
+    key = get_sync_key()
+    print("Khớp môi hậu kỳ (Sync Labs):")
+    print(f"  Key: {'đã có' if key else 'chưa có — chạy `lipsync set-key`'}")
+    print(f"  Model: {cfg.get('model', 'lipsync-2')} "
+          f"({', '.join(KNOWN_MODELS)})")
+    print(f"  Sync mode: {cfg.get('sync_mode', 'cut_off')}")
+    print(f"  Chờ tối đa mỗi cảnh: {cfg.get('poll_timeout', 600)}s")
+    print("  Dùng: build --lipsync (cảnh nào có lipsync: true mới được sync),")
+    print("  hoặc lipsync sync --video <clip> --audio <mp3> --out <file>.")
+    return 0
+
+
+def cmd_lipsync_set_key(_args) -> int:
+    key = getpass.getpass("Dán Sync Labs API key (ẩn khi gõ): ").strip()
+    if not key:
+        print("Chưa nhập key.")
+        return 1
+    try:
+        ok = SyncLipSyncClient(key).check_key()
+    except SyncError as e:
+        print(f"Lỗi kiểm tra key: {e} — chưa lưu gì cả.")
+        return 1
+    except Exception as e:  # noqa: BLE001
+        print(f"Lỗi kiểm tra key: {e} — chưa lưu gì cả.")
+        return 1
+    if not ok:
+        print("Key không đúng (401) — chưa lưu gì cả.")
+        return 1
+    save_env_key("SYNC_API_KEY", key)
+    print("Đã lưu key vào .env — key đúng.")
+    print("Chạy `build --script <kịch-bản> --lipsync` để khớp môi các cảnh "
+          "có lipsync: true.")
+    return 0
+
+
+def cmd_lipsync_sync(args) -> int:
+    settings = load_settings()
+    if args.model:
+        if args.model not in KNOWN_MODELS:
+            print(f"Model '{args.model}' không hợp lệ ({', '.join(KNOWN_MODELS)}).")
+            return 1
+        settings["lipsync"]["model"] = args.model
+    key = get_sync_key()
+    if not args.mock and not key:
+        print("Chưa có key Sync Labs — chạy `lipsync set-key` trước "
+              "(hoặc thêm --mock để chạy thử).")
+        return 1
+    video = Path(args.video)
+    audio = Path(args.audio)
+    if not video.exists():
+        print(f"Không thấy clip: {video}")
+        return 1
+    if not audio.exists():
+        print(f"Không thấy audio: {audio}")
+        return 1
+    out = Path(args.out) if args.out else video.parent / f"{video.stem}-lipsync.mp4"
+    try:
+        client = build_lipsync(key, settings, mock=args.mock)
+        dest = client.sync(video, audio, out)
+    except SyncError as e:
+        print(f"Lỗi lip-sync: {e}")
+        return 1
+    print(f"Đã khớp môi: {dest}")
+    return 0
+
+
+# ---------------------------------------------------------------- prompts
+
+def cmd_prompts(args) -> int:
+    """Nhờ Muse viết prompt sinh video từ kịch bản.
+
+    Nguồn kịch bản: --script (file YAML/Markdown, ưu tiên), --text (paste
+    trực tiếp), hoặc pipe qua stdin. Có --account thì nhờ Muse viết qua
+    gateway (tin nhắn sẽ hiện trong chat chính của acc đó, như lúc tạo
+    video); không có thì dùng mẫu có sẵn. --apply ghi prompt vào visual
+    và lưu file <tên>.prompts.yaml để build luôn.
+    """
+    from automuse.prompting import prompts_from_script, prompts_from_text
+
+    settings = load_settings()
+    client = None
+    if args.account:
+        mgr = AccountManager()
+        acc = mgr.get(args.account)
+        if not acc:
+            print(f"Không có tài khoản '{args.account}'.")
+            return 1
+        client = build_client(acc, settings, mock=False)
+        from automuse.gateway import GatewayClient
+
+        if not isinstance(client, GatewayClient):
+            print("Cần transport gateway để nhờ Muse viết prompt "
+                  "(settings.yaml: muse.transport: gateway).")
+            return 1
+
+    script = None
+    if args.script:
+        try:
+            script = load_script(args.script)
+        except Exception as e:  # noqa: BLE001
+            print(f"Không đọc được kịch bản: {e}")
+            return 1
+        # Khóa mô tả nhân vật vào visual để cả đường Muse (raw text gửi
+        # đi) lẫn đường template đều giữ nhân vật đồng nhất.
+        from automuse.characters import apply_character_lock
+
+        apply_character_lock(script)
+        kind = args.kind or script.kind
+        aspect = args.aspect or script.aspect
+    else:
+        kind = args.kind or "documentary"
+        aspect = args.aspect or "16:9"
+    if kind not in ("movie", "documentary", "animation"):
+        print(f"Thể loại '{kind}' không hợp lệ (movie/documentary/animation).")
+        return 1
+
+    if script is not None:
+        if client is not None:
+            raw = "\n\n".join(
+                f"Cảnh {i + 1} — {s.title}\n{s.visual}\n{s.narration}".strip()
+                for i, s in enumerate(script.scenes)
+            )
+            prompts = prompts_from_text(raw, client=client, kind=kind, aspect=aspect)
+        else:
+            prompts = prompts_from_script(script)
+    else:
+        if args.text:
+            raw = args.text
+        elif not sys.stdin.isatty():
+            # Chỉ đọc stdin khi có dữ liệu sẵn — pipe mở mà không có
+            # dữ liệu sẽ làm read() chờ mãi (kẹt cả khi chạy test).
+            import select
+
+            if select.select([sys.stdin], [], [], 0.0)[0]:
+                raw = sys.stdin.read()
+            else:
+                raw = ""
+        else:
+            print("Chưa có kịch bản: dùng --script, --text, hoặc pipe kịch bản qua stdin.")
+            return 1
+        if not raw.strip():
+            print("Kịch bản rỗng.")
+            return 1
+        prompts = prompts_from_text(raw, client=client, kind=kind, aspect=aspect)
+
+    if not prompts:
+        print("Không tách được cảnh nào từ kịch bản.")
+        return 1
+
+    for i, p in enumerate(prompts, 1):
+        print(f"\n[{i}] {p.title} ({p.duration}s)")
+        print(p.prompt)
+
+    if args.out:
+        out_path = Path(args.out)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(
+            "".join(f"[{i}] {p.title} ({p.duration}s)\n{p.prompt}\n\n"
+                    for i, p in enumerate(prompts, 1)),
+            encoding="utf-8",
+        )
+        print(f"\nĐã lưu prompts: {out_path}")
+
+    if args.apply:
+        if script is None:
+            print("--apply chỉ dùng với --script.")
+            return 1
+        if len(prompts) != len(script.scenes):
+            print(f"Cảnh báo: có {len(prompts)} prompt cho {len(script.scenes)} cảnh "
+                  "— chỉ ghi những cảnh khớp số thứ tự.")
+        import yaml
+
+        data = {
+            "title": script.title,
+            "kind": script.kind,
+            "aspect": script.aspect,
+            **({"characters": script.characters} if script.characters else {}),
+            **({"voices": script.voices} if script.voices else {}),
+            "default_voice": script.default_voice,
+            "fps": script.fps,
+            **({"music": script.music} if script.music else {}),
+            "scenes": [
+                {
+                    "title": s.title,
+                    "duration": s.duration,
+                    "visual": prompts[i].prompt if i < len(prompts) else s.visual,
+                    "narration": s.narration,
+                    **({"voice": s.voice} if s.voice else {}),
+                    **({"character": s.character} if s.character else {}),
+                    **({"reference_image": s.reference_image} if s.reference_image else {}),
+                    **({"sfx": s.sfx} if s.sfx else {}),
+                    **({"lipsync": True} if s.lipsync else {}),
+                }
+                for i, s in enumerate(script.scenes)
+            ],
+        }
+        src = Path(args.script)
+        dest = src.parent / f"{src.stem}.prompts.yaml"
+        dest.write_text(yaml.dump(data, allow_unicode=True, sort_keys=False),
+                        encoding="utf-8")
+        print(f"Đã ghi prompt vào visual: {dest} — build bằng "
+              f"`build --script {dest}`.")
+    return 0
+
+
+# ---------------------------------------------------------------- characters
+
+def cmd_characters_show(args) -> int:
+    """Liệt kê nhân vật trong kịch bản: mô tả + ảnh tham chiếu có hay không."""
+    from automuse.characters import character_warnings, resolve_image_path
+
+    try:
+        script = load_script(args.script)
+    except Exception as e:  # noqa: BLE001
+        print(f"Không đọc được kịch bản: {e}")
+        return 1
+    script_dir = Path(args.script).resolve().parent
+    print(f"Kịch bản: {script.title} ({len(script.scenes)} cảnh)")
+    if not script.characters:
+        print("Chưa có bảng characters — thêm mục characters: vào kịch bản "
+              "để khóa mô tả nhân vật cho đồng nhất qua các cảnh.")
+    for name, entry in script.characters.items():
+        desc = entry.get("description", "") if isinstance(entry, dict) else str(entry)
+        image = entry.get("image", "") if isinstance(entry, dict) else ""
+        print(f"\n- {name}")
+        print(f"  Mô tả: {desc or '(chưa có)'}")
+        if image:
+            ok = resolve_image_path(image, script_dir).exists()
+            print(f"  Ảnh: {image} ({'có file' if ok else 'KHÔNG thấy file'})")
+        else:
+            print("  Ảnh: (chưa có)")
+    for w in character_warnings(script, script_dir):
+        print(f"  ! {w}")
+    return 0
+
+
 # ---------------------------------------------------------------- init
 
 def cmd_init(args) -> int:
     kind = args.kind
     src = REPO_ROOT / "templates" / f"{kind}_script.yaml"
     if not src.exists():
-        print(f"Không có template cho kind '{kind}' (movie | documentary)")
+        print(f"Không có template cho kind '{kind}' (movie | documentary | animation)")
         return 1
     dest = Path(args.out)
     dest.parent.mkdir(parents=True, exist_ok=True)
@@ -517,7 +772,10 @@ def cmd_build(args) -> int:
             resume=args.resume,
             account_names=names,
             music=args.music,
+            native_bed=getattr(args, "native_bed", None),
             api_key=elevenlabs_api_key(),
+            lipsync=args.lipsync,
+            sync_api_key=get_sync_key(),
         )
     except (ValueError, RuntimeError) as e:
         print(f"Lỗi: {e}")
@@ -611,8 +869,24 @@ def build_parser() -> argparse.ArgumentParser:
     vm.add_argument("model", help="vd: eleven_multilingual_v2, eleven_v3, eleven_turbo_v2_5")
     vm.set_defaults(func=cmd_voices_set_model)
 
-    i = sub.add_parser("init", help="Tạo kịch bản mẫu (movie/documentary)")
-    i.add_argument("--kind", choices=["movie", "documentary"], default="documentary")
+    pr = sub.add_parser("prompts", help="Nhờ Muse viết prompt sinh video từ kịch bản (paste text hoặc file script)")
+    pr.add_argument("--script", default="", help="File kịch bản YAML/Markdown (ưu tiên hơn --text)")
+    pr.add_argument("--text", default="", help="Kịch bản paste trực tiếp")
+    pr.add_argument("--account", default="", help="Acc Muse để nhờ viết prompt (không có = dùng mẫu có sẵn)")
+    pr.add_argument("--kind", default=None, choices=["movie", "documentary", "animation"], help="Thể loại (mặc định: theo script, hoặc documentary)")
+    pr.add_argument("--aspect", default="", help="vd: 16:9, 9:16 (mặc định: theo script, hoặc 16:9)")
+    pr.add_argument("--apply", action="store_true", help="Ghi prompt vào visual, lưu file <tên>.prompts.yaml (chỉ với --script)")
+    pr.add_argument("--out", default="", help="Lưu prompts ra file text")
+    pr.set_defaults(func=cmd_prompts)
+
+    ch = sub.add_parser("characters", help="Nhân vật trong kịch bản (bảng characters)")
+    ch_sub = ch.add_subparsers(dest="characters_action", required=True)
+    ch_show = ch_sub.add_parser("show", help="Liệt kê nhân vật + mô tả + ảnh tham chiếu")
+    ch_show.add_argument("--script", required=True)
+    ch_show.set_defaults(func=cmd_characters_show)
+
+    i = sub.add_parser("init", help="Tạo kịch bản mẫu (movie/documentary/animation)")
+    i.add_argument("--kind", choices=["movie", "documentary", "animation"], default="documentary")
     i.add_argument("--out", required=True)
     i.add_argument("--force", action="store_true")
     i.set_defaults(func=cmd_init)
@@ -637,10 +911,33 @@ def build_parser() -> argparse.ArgumentParser:
     b.add_argument("--mock", action="store_true")
     b.add_argument("--accounts", default="", help="Chỉ dùng các acc này, cách nhau bởi dấu phẩy")
     b.add_argument("--music", default="", help="File nhạc nền (mp3/wav)")
+    b.add_argument("--native-bed", dest="native_bed", action="store_true",
+                   default=None,
+                   help="Dùng tiếng gốc của clip làm nền dưới lời dẫn "
+                        "(mặc định bật cho phim tài liệu, tắt cho phim truyện)")
+    b.add_argument("--no-native-bed", dest="native_bed", action="store_false",
+                   help="Không dùng tiếng gốc của clip làm nền")
     b.add_argument("--no-tts", action="store_true")
     b.add_argument("--no-iris", action="store_true")
     b.add_argument("--resume", action="store_true")
+    b.add_argument("--lipsync", action="store_true",
+                   help="Khớp môi hậu kỳ (Sync Labs) cho cảnh có lipsync: true — cần key, chạy `lipsync set-key`")
     b.set_defaults(func=cmd_build)
+
+    ls = sub.add_parser("lipsync", help="Khớp môi hậu kỳ bằng Sync Labs: xem / nhập key / sync 1 cặp clip + audio")
+    ls.set_defaults(func=cmd_lipsync_show)
+    ls_sub = ls.add_subparsers(dest="lipsync_action")
+    lk = ls_sub.add_parser("set-key", help="Nhập Sync Labs API key (kiểm tra rồi mới lưu vào .env)")
+    lk.set_defaults(func=cmd_lipsync_set_key)
+    lsync = ls_sub.add_parser("sync", help="Khớp môi 1 cặp clip + audio")
+    lsync.add_argument("--video", required=True, help="Clip mp4 cần khớp môi")
+    lsync.add_argument("--audio", required=True, help="File audio lời thoại (mp3/wav)")
+    lsync.add_argument("--out", default="", help="File đích (mặc định: <tên-clip>-lipsync.mp4)")
+    lsync.add_argument("--model", default="", help=f"Model Sync Labs ({', '.join(KNOWN_MODELS)})")
+    lsync.add_argument("--mock", action="store_true", help="Chạy thử, không cần key (chép nguyên clip)")
+    lsync.set_defaults(func=cmd_lipsync_sync)
+    lshow = ls_sub.add_parser("show", help="Xem cài đặt khớp môi hiện tại")
+    lshow.set_defaults(func=cmd_lipsync_show)
 
     w = sub.add_parser("web", help="Mở Web Studio — giao diện quản lý kiểu automuse.site")
     w.add_argument("--host", default="127.0.0.1", help="Mặc định chỉ máy này truy cập được")

@@ -309,6 +309,26 @@ exists.) The call is `sendRequest("chat.stream", params,
 {expectedGatewayTargetKey, onWireSent})`; the promise resolves with the
 ack object (fields seen: `reply_to_message_id`, `session_id`,
 `message_id`). The agent then generates media server-side and streams
+
+#### `items` — attachments (verified from `buildAttachmentItems`, two deployments agree)
+
+Attachments go in the same `items` array, **before** the text item:
+
+| type | fields | when |
+|---|---|---|
+| `text` | `text` | always, appended **last** |
+| `image` | `mime_type`, `data_base64`, `filename` | every image attachment — **always inline base64, never uploaded** |
+| `file` | `mime_type`, `data_base64`, `filename` | small non-image files, inline base64 |
+| `file_ref` | `mime_type`, `path`, `filename` | large non-image files; `path` = VM-relative upload path, no leading slash (uploaded first via `fs.write`, 512 KiB chunks) |
+
+Images are never uploaded (`shouldUploadAttachment` returns false for
+`category == "image"`). The web UI normalizes pasted images before
+sending (JPEG/PNG only, re-encoded JPEG q=0.85, max 4096 px / 16 MP);
+files already in that shape pass through as-is. **Unverified:** whether
+the server-side video pipeline actually uses an attached image as a
+character reference — the transport delivers it; the model may treat it
+as chat context only. One live probe (model sheet + short prompt) is
+the only way to settle this.
 records back. `node_id` is the client's device/node id
 (`hatch_native_auth_device` cookie value family); `capabilities` mostly
 describes what the client can render — the server tolerates a minimal

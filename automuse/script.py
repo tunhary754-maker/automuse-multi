@@ -40,6 +40,9 @@ class Scene:
     character: str = ""
     sfx: str = ""
     reference_image: str = ""
+    # Khớp môi hậu kỳ (Sync Labs): chỉ dùng cho cảnh thoại cận mặt trong
+    # phim truyện; build phải có --lipsync thì cờ này mới có tác dụng.
+    lipsync: bool = False
 
     @property
     def tts_text(self) -> str:
@@ -49,11 +52,15 @@ class Scene:
 @dataclass
 class Script:
     title: str = "Untitled"
-    kind: str = "movie"  # movie | documentary
+    kind: str = "movie"  # movie | documentary | animation
     aspect: str = "16:9"
     fps: int = 30
     default_voice: str = "narrator"
     voices: dict[str, str] = field(default_factory=dict)  # tên -> voice_id ElevenLabs
+    # Bảng nhân vật đồng nhất: tên -> {"description": mô tả cố định
+    # (tiếng Anh), "image": đường dẫn ảnh tham chiếu (tùy chọn)}.
+    # Mô tả được khóa vào mọi cảnh có nhân vật đó (xem automuse/characters.py).
+    characters: dict[str, dict] = field(default_factory=dict)
     music: str = ""  # đường dẫn nhạc nền (tùy chọn)
     scenes: list[Scene] = field(default_factory=list)
 
@@ -88,17 +95,42 @@ def _from_yaml(text: str) -> Script:
         fps=int(data.get("fps", 30)),
         default_voice=data.get("default_voice", "narrator"),
         voices=data.get("voices", {}) or {},
+        characters=_normalize_characters(data.get("characters", {}) or {}),
         music=data.get("music", "") or "",
         scenes=scenes,
     )
 
 
+def _normalize_characters(raw: dict) -> dict[str, dict]:
+    """Chuẩn hóa bảng characters: entry chuỗi -> {"description": chuỗi},
+    entry không phải dict/chuỗi -> bỏ qua."""
+    out: dict[str, dict] = {}
+    if not isinstance(raw, dict):
+        return out
+    for name, entry in raw.items():
+        if isinstance(entry, dict):
+            out[str(name)] = {
+                str(k): v for k, v in entry.items()
+                if k in ("description", "image")
+            }
+        elif isinstance(entry, str) and entry.strip():
+            out[str(name)] = {"description": entry.strip()}
+    return out
+
+
 def _scene_kwargs(raw: dict) -> dict:
     allowed = {"id", "title", "duration", "visual", "narration", "voice",
-               "character", "sfx", "reference_image"}
+               "character", "sfx", "reference_image", "lipsync"}
     out = {k: v for k, v in raw.items() if k in allowed}
     if "duration" in out:
         out["duration"] = int(out["duration"])
+    if "lipsync" in out:
+        # YAML đã parse bool sẵn; Markdown đưa chuỗi "true"/"false".
+        value = out["lipsync"]
+        out["lipsync"] = (
+            value if isinstance(value, bool)
+            else str(value).strip().lower() in ("true", "1", "yes", "có")
+        )
     return out
 
 
@@ -115,6 +147,7 @@ _KEY_ALIASES = {
     "thời lượng": "duration", "thoi luong": "duration", "duration": "duration",
     "ảnh mẫu": "reference_image", "anh mau": "reference_image",
     "reference": "reference_image",
+    "lipsync": "lipsync", "khớp môi": "lipsync", "khop moi": "lipsync",
 }
 
 _META_KEYS = {
@@ -133,6 +166,7 @@ def _from_markdown(text: str) -> Script:
     title = "Untitled"
     meta: dict[str, str] = {}
     voices: dict[str, str] = {}
+    characters: dict[str, dict] = {}
     scenes_raw: list[dict] = []
     current: dict | None = None
     current_key: str | None = None
@@ -165,7 +199,8 @@ def _from_markdown(text: str) -> Script:
             continue
         m = re.match(r"^([^:]{1,30}):\s*(.*)$", line)
         if m:
-            key = m.group(1).strip().lower()
+            raw_key = m.group(1).strip()
+            key = raw_key.lower()
             value = m.group(2).strip()
             if current is None:
                 if key in _META_KEYS:
@@ -173,6 +208,13 @@ def _from_markdown(text: str) -> Script:
                 elif key.startswith("giọng ") or key.startswith("voice "):
                     name = key.split(None, 1)[1]
                     voices[name] = value
+                elif key.startswith("nhân vật ") or key.startswith("character "):
+                    # Giữ nguyên chữ hoa/thường của tên (khác voices).
+                    # Tiền tố "Nhân vật"/"Character" có 2 từ nên cắt theo
+                    # độ dài tiền tố, không split() từ đầu tiên.
+                    prefix = "nhân vật " if key.startswith("nhân vật ") else "character "
+                    name = raw_key[len(prefix):].strip()
+                    characters[name] = {"description": value}
                 elif key in ("voices",):
                     pass
                 continue
@@ -206,6 +248,7 @@ def _from_markdown(text: str) -> Script:
         fps=int(meta.get("fps", 30)),
         default_voice=meta.get("default_voice", "narrator"),
         voices=voices,
+        characters=_normalize_characters(characters),
         music=meta.get("music", ""),
         scenes=scenes,
     )

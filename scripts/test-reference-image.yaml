@@ -1,0 +1,9 @@
+title: Test ảnh tham chiếu nhân vật
+kind: animation
+aspect: '16:9'
+scenes:
+  - id: s01
+    title: "Chuột ngửi pho mát"
+    duration: 8
+    visual: "A chubby sewer rat sniffs a piece of cheese in a dark brick alley at night, the hyperactive cockroach zips around him in a blur, the cross-eyed city pigeon watches from a pipe above. Featuring the chubby sewer rat (round grey rat, big belly, pink tail), the hyperactive cockroach (small brown cockroach, huge eyes, twitchy), the cross-eyed city pigeon (grey pigeon, googly cross-eyes, goofy). Larva-style silent slapstick 3D animation."
+    reference_image: "/home/hatch/workspace/user/media_library/image/a7/a7a9ded39e6646bdc801ec86abc4261eab071019759f0bfb00971705a9db0aef.jpg"

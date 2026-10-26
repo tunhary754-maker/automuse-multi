@@ -1,0 +1,46 @@
+# Kịch bản test nhỏ: PHIM TRUYỆN 3 cảnh (để test pipeline + lip-sync)
+# Chạy thử: python cli.py build --script scripts/test-lipsync.yaml --mock
+# Chạy thật + lip-sync: python cli.py build --script scripts/test-lipsync.yaml --lipsync
+title: "Phim truyện — Test lip-sync (3 cảnh)"
+kind: movie
+aspect: "16:9"
+fps: 30
+default_voice: narrator
+voices:
+  narrator: "21m00Tcm4TlvDq8ikWAM"   # ví dụ: Rachel
+  An: "EXAVITQu4vr4xnSDxMaL"        # ví dụ: Bella
+  Bình: "TxGEqnHWKZ17j1QkYp7w"      # ví dụ: Josh
+# Bảng nhân vật đồng nhất: mô tả cố định được khóa vào cảnh có nhân vật.
+characters:
+  An:
+    description: "young Vietnamese woman, shoulder-length black hair, yellow raincoat, red scarf"
+    image: "assets/characters/an.png"
+  Bình:
+    description: "young Vietnamese man, short black hair, round glasses, blue shirt, holding a black umbrella"
+    image: "assets/characters/binh.png"
+music: ""
+
+scenes:
+  - id: s01
+    title: "Gặp nhau dưới mưa"
+    duration: 6
+    visual: "Rainy Saigon street at night, neon signs reflecting on wet asphalt, a young woman with umbrella waiting under an awning, cinematic film still, moody lighting"
+    narration: "Sài Gòn, mười một giờ đêm. Cơn mưa bất chợt khiến An phải trú dưới mái hiên này."
+    voice: narrator
+
+  - id: s02
+    title: "Câu nói đầu tiên"
+    duration: 6
+    visual: "Medium close-up of a young man smiling warmly offering his umbrella to a surprised young woman, rain bokeh in background, romantic drama film style, speaking to camera"
+    narration: "Cô trú mưa ở đây à? Tôi có hai chiếc ô, cô lấy một chiếc đi."
+    voice: Bình
+    character: Bình
+    lipsync: true
+
+  - id: s03
+    title: "Nụ cười"
+    duration: 5
+    visual: "Close-up of a young woman smiling shyly accepting an umbrella, rain drops on her hair, warm neon light, romantic drama film style"
+    narration: "An bật cười. Có lẽ đêm nay không còn lạnh nữa."
+    voice: narrator
+    character: An

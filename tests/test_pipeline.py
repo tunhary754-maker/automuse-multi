@@ -128,5 +128,74 @@ class TestNoSilentMockFallback(unittest.TestCase):
         self.assertEqual(list(out.rglob("*.mp4")), [])
 
 
+def _lipsync_script(tmp: Path) -> Path:
+    """Kịch bản 2 cảnh: s01 thoại cận mặt (lipsync), s02 lời dẫn (không)."""
+    p = tmp / "phim.yaml"
+    p.write_text(
+        "title: Test lip-sync\nkind: movie\naspect: '16:9'\nscenes:\n"
+        "  - id: s01\n    title: Nói\n    duration: 5\n"
+        "    visual: close-up talking\n    narration: Chào bạn, tôi là Bình.\n"
+        "    voice: narrator\n    lipsync: true\n"
+        "  - id: s02\n    title: Nghe\n    duration: 5\n"
+        "    visual: wide street\n    narration: Sài Gòn đêm mưa.\n"
+        "    voice: narrator\n",
+        encoding="utf-8")
+    return p
+
+
+class _FailingLipSync:
+    def sync(self, video_path, audio_path, out_path):
+        from automuse.lipsync import SyncError
+        raise SyncError("Sync Labs lỗi giả lập")
+
+
+class TestRunBuildLipSync(unittest.TestCase):
+    def test_mock_build_records_lipsync_status(self):
+        """Mock build với 1 cảnh lipsync: manifest ghi ok/skipped,
+        file clips_lipsync/s01.mp4 được tạo."""
+        tmp = Path(tempfile.mkdtemp())
+        script = _lipsync_script(tmp)
+        settings = {"generation": {"delay_between_jobs": 0,
+                                   "max_retries_per_scene": 3}}
+        from automuse.pipeline import run_build
+        manifest = run_build(script, out_dir=tmp / "out", settings=settings,
+                             mock=True, lipsync=True)
+        scenes = {s["id"]: s for s in manifest["scenes"]}
+        self.assertEqual(scenes["s01"]["lipsync"], "ok")
+        self.assertEqual(scenes["s02"]["lipsync"], "skipped")
+        self.assertTrue((tmp / "out" / "clips_lipsync" / "s01.mp4").exists())
+        self.assertTrue((tmp / "out" / "final.mp4").exists())
+
+    def test_failing_sync_keeps_original_clip(self):
+        """Client lip-sync lỗi -> giữ clip gốc, build vẫn xong,
+        manifest ghi failed."""
+        tmp = Path(tempfile.mkdtemp())
+        script = _lipsync_script(tmp)
+        settings = {"generation": {"delay_between_jobs": 0,
+                                   "max_retries_per_scene": 3}}
+        from automuse.pipeline import run_build
+        with mock.patch("automuse.pipeline.build_lipsync",
+                        return_value=_FailingLipSync()):
+            manifest = run_build(script, out_dir=tmp / "out",
+                                 settings=settings, mock=True, lipsync=True)
+        scenes = {s["id"]: s for s in manifest["scenes"]}
+        self.assertEqual(scenes["s01"]["lipsync"], "failed")
+        self.assertTrue((tmp / "out" / "final.mp4").exists())
+        self.assertTrue((tmp / "out" / "clips" / "s01.mp4").exists())
+        self.assertFalse((tmp / "out" / "clips_lipsync" / "s01.mp4").exists())
+
+    def test_lipsync_without_key_fails_fast(self):
+        """Bật --lipsync, không mock, chưa có key -> dừng ngay với
+        hướng dẫn chạy `lipsync set-key`."""
+        tmp = Path(tempfile.mkdtemp())
+        script = _lipsync_script(tmp)
+        from automuse.pipeline import run_build
+        with mock.patch("automuse.pipeline.get_sync_key", return_value=""):
+            with self.assertRaises(RuntimeError) as ctx:
+                run_build(script, out_dir=tmp / "out", settings={},
+                          mock=False, lipsync=True, sync_api_key="")
+        self.assertIn("lipsync set-key", str(ctx.exception))
+
+
 if __name__ == "__main__":
     unittest.main()

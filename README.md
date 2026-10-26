@@ -18,6 +18,9 @@ chạy CLI, thêm:
 - 🎙️ **Lồng tiếng theo kịch bản** — ElevenLabs đọc lời thoại từng cảnh,
   nhiều giọng cho nhiều nhân vật, tự căn đúng mốc thời gian, kèm phụ đề SRT,
   nhạc nền, fade-out / iris-out cuối phim.
+- 👄 **Khớp môi hậu kỳ (Sync Labs)** — cảnh thoại cận mặt có `lipsync: true`
+  được vẽ lại miệng khớp với giọng đọc (`build --lipsync`); sync lỗi thì
+  giữ clip gốc, không làm hỏng build.
 - 🔁 **Chia tải qua các acc** — round-robin, acc lỗi tự đổi acc khác,
   cooldown sau 3 lỗi liên tiếp, `--resume` chạy tiếp từ chỗ dừng.
 
@@ -131,6 +134,71 @@ custom và chỉnh tốc độ/ổn định/giống giọng/biểu cảm/model.
 
 Trong kịch bản, bảng `voices:` map tên giọng (vd: `narrator`, `An`, `Bình`)
 sang `voice_id`. Có thể dùng tên giọng thay cho ID — tool tự resolve.
+Bảng `characters:` khóa mô tả nhân vật (tiếng Anh, cố định) vào mọi cảnh
+có nhân vật đó để nhân vật giống nhau qua các cảnh — xem `characters show
+--script <file>`; ảnh tham chiếu (`image`) được đính kèm inline base64
+trong cùng tin nhắn chat.stream (ảnh trước, text sau), kèm câu dặn dùng
+ảnh làm mẫu nhân vật.
+
+## 2b. Tự viết prompt từ kịch bản
+
+Chỉ cần paste kịch bản tiếng Việt, Muse sẽ viết prompt tạo video tiếng Anh
+cho từng cảnh (đúng nhân vật, góc máy, phong cách theo thể loại):
+
+```bash
+python cli.py prompts --script scripts/dong-vat.yaml
+cat kich-ban.txt | python cli.py prompts --kind documentary
+python cli.py prompts --text "Cảnh 1 — Bình minh thảo nguyên
+Bình minh lên trên thảo nguyên châu Phi, bầy sư tử trở về sau chuyến săn đêm."
+```
+
+Thêm `--account acc1` để nhờ Muse viết (tin nhắn sẽ hiện trong chat chính
+của acc đó, như lúc tạo video); không có `--account` thì dùng mẫu có sẵn
+(từ khóa chính vẫn đúng, câu văn chưa mượt bằng Muse viết). Thêm `--apply`
+để ghi prompt vào `visual` và lưu file `<tên>.prompts.yaml`, rồi build luôn:
+
+```bash
+python cli.py prompts --script scripts/dong-vat.yaml --account acc1 --apply
+python cli.py build --script scripts/dong-vat.prompts.yaml
+```
+
+## 2c. Khớp môi hậu kỳ — Sync Labs (lip-sync)
+
+Muse sinh clip từ prompt chữ, không nhận file audio, nên môi nhân vật
+không tự khớp với giọng ElevenLabs. Bước này chạy sau khi sinh clip:
+cảnh nào có `lipsync: true` sẽ được đưa clip + file audio lời thoại qua
+Sync Labs để vẽ lại miệng khớp từng âm.
+
+```bash
+python cli.py lipsync set-key   # nhập key Sync Labs (kiểm tra rồi mới lưu vào .env)
+python cli.py build --script scripts/phim.yaml --lipsync
+```
+
+Trong kịch bản, chỉ đánh dấu cảnh thoại cận mặt (phim truyện):
+
+```yaml
+  - id: s02
+    title: "Câu nói đầu tiên"
+    narration: "Cô trú mưa ở đây à? Tôi có hai chiếc ô, cô lấy một chiếc đi."
+    voice: Bình
+    lipsync: true   # chỉ cảnh này được khớp môi
+```
+
+- **Model:** chỉnh trong `config/settings.yaml` mục `lipsync.model` —
+  `lipsync-2` (mặc định, nhanh/rẻ), `lipsync-2-pro`, `sync-3` (tốt nhất,
+  4K), `react-1` (biểu cảm, clip tối đa 15 giây). `sync_mode` mặc định
+  là `cut_off` (cắt audio dài hơn video ở cuối clip).
+- **An toàn:** cảnh nào sync lỗi thì giữ nguyên clip gốc, build vẫn chạy
+  tiếp — lip-sync không bao giờ làm hỏng build. Trạng thái từng cảnh ghi
+  trong `manifest.json` (`scenes[].lipsync`: `ok` / `skipped` / `failed`).
+- **Chạy lẻ 1 cặp clip + audio** (không cần build cả phim):
+  `python cli.py lipsync sync --video clips/s02.mp4 --audio audio/s02.mp3 --out clips/s02-lipsync.mp4`
+  (thêm `--model sync-3`, `--mock` để chạy thử không cần key).
+- **Chi phí:** Sync Labs tính phí theo giây ngoài gói tháng của họ — xem
+  bảng giá tại sync.so/pricing. Web Studio cũng có ô nhập key Sync Labs
+  ở trang Tổng quan và tick **Khớp môi (lip-sync)** ở tab Tạo video.
+- Chưa có key mà build với `--lipsync` (không phải mock) thì dừng ngay
+  với hướng dẫn chạy `lipsync set-key`.
 
 ## 3. Viết kịch bản
 
@@ -248,6 +316,7 @@ automuse-multi/
 │   ├── muse_client.py      # client Muse (thật + mock)
 │   ├── script.py           # đọc kịch bản YAML/Markdown
 │   ├── elevenlabs.py       # TTS ElevenLabs (+ mock)
+│   ├── lipsync.py          # khớp môi hậu kỳ Sync Labs (+ mock)
 │   ├── audio.py            # timeline lời thoại, nhạc nền, SRT
 │   ├── video.py            # ffmpeg: chuẩn hóa, nối, iris-out
 │   ├── pipeline.py         # pipeline build full

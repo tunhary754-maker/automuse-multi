@@ -52,6 +52,16 @@ elevenlabs:
   style: 0.0                        # 0–1: độ biểu cảm (model v2/v3)
   use_speaker_boost: true           # tăng độ rõ giọng
 
+# Khớp môi hậu kỳ bằng Sync Labs (sync.so) — chỉ chạy khi build có
+# --lipsync và cảnh có lipsync: true. Key nhập bằng `lipsync set-key`
+# (lưu SYNC_API_KEY vào .env). Model: lipsync-2 (mặc định, nhanh/rẻ),
+# lipsync-2-pro, sync-3 (tốt nhất, 4K), react-1 (biểu cảm, clip ≤15s).
+# Sync Labs tính phí theo giây ngoài gói tháng (xem sync.so/pricing).
+lipsync:
+  model: "lipsync-2"
+  sync_mode: "cut_off"   # cắt audio dài hơn video ở cuối clip
+  poll_timeout: 600       # chờ tối đa mỗi cảnh (giây)
+
 video:
   width_16_9: 1280
   height_16_9: 720

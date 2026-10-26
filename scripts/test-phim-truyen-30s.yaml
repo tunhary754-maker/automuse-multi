@@ -1,0 +1,49 @@
+# Kịch bản test: PHIM TRUYỆN ~30s (3 cảnh x 10s)
+# Câu chuyện: An mở quán phở nhỏ bán khuya; Bình là khách quen 11h đêm.
+# - s02 là cảnh thoại cận mặt -> build với --lipsync để test khớp môi.
+# - Chưa có file ảnh nhân vật nên chỉ dùng bảng characters (mô tả khóa);
+#   khi nào có ảnh thật trong assets/characters/ thì thêm reference_image
+#   vào từng cảnh, gateway sẽ đính kèm ảnh inline khi sinh clip.
+# Chạy thử: python cli.py build --script scripts/test-phim-truyen-30s.yaml --mock --lipsync
+# Chạy thật: python cli.py build --script scripts/test-phim-truyen-30s.yaml --accounts acc1 --lipsync
+title: "Phim truyện — Quán nhỏ cuối phố (test 30s)"
+kind: movie
+aspect: "16:9"
+fps: 30
+default_voice: narrator
+voices:
+  narrator: "KJmTHSk3TjHp87WObL98"   # Bá Lục — nam miền Bắc, Vietnamese Narrator
+  An: "bGrXyJJO3GAb4CT9ltbv"        # Bảo Ngọc — nữ miền Nam, nhẹ nhàng
+  Bình: "FTYCiQT21H9XQvhRu0ch"      # Minh Trung — nam miền Nam, giọng trầm ấm
+characters:
+  An:
+    description: "young Vietnamese woman, shoulder-length black hair, yellow raincoat, red scarf"
+  Bình:
+    description: "young Vietnamese man, short black hair, round glasses, blue shirt, holding a black umbrella"
+music: ""
+
+scenes:
+  - id: s01
+    title: "Quán nhỏ bán khuya"
+    duration: 10
+    visual: "Small Vietnamese street food stall late at night, steam rising from a pho pot, warm yellow lamp light, neon signs and rain-wet street in background, a young woman cooking, cinematic film still, moody lighting"
+    narration: "Quán nhỏ của tôi mở đến hai giờ sáng. Khách quen nhất là anh Bình, cứ mười một giờ đêm là anh tới, gọi đúng một tô phở."
+    voice: narrator
+    character: An
+
+  - id: s02
+    title: "Khách quen"
+    duration: 10
+    visual: "Medium close-up of a young man smiling warmly at a street food stall, speaking to the cook, steam and neon bokeh in background, romantic drama film style, speaking to camera"
+    narration: "Hôm nay cô cho thêm hành nhé. Ba tháng rồi, chưa bữa nào cô quên cả."
+    voice: Bình
+    character: Bình
+    lipsync: true
+
+  - id: s03
+    title: "Không chỉ bán phở"
+    duration: 10
+    visual: "Close-up of a young woman smiling shyly while ladling hot broth, warm light on her face, the young man eating in soft-focus background, rain falling outside the stall, romantic drama film style"
+    narration: "An bật cười, múc thêm một vá nước lèo. Có lẽ quán nhỏ này sẽ không chỉ bán phở nữa."
+    voice: narrator
+    character: An

@@ -1,0 +1,29 @@
+# Sinh LẠI cảnh s02 để miệng khớp lời thoại.
+# Bản gốc: Bình cận mặt nhưng miệng mấp máy ngẫu nhiên, không khớp tiếng.
+# Bản này: Bình nói rõ trong nửa đầu clip, rồi cười nhẹ + gật đầu, miệng khép.
+# Chỉ sinh 1 cảnh (tốn 1 video) rồi ráp vào final cũ, không sinh lại s01/s03.
+title: "Phim truyện — Quán nhỏ cuối phố (s02 sinh lại)"
+kind: movie
+aspect: "16:9"
+fps: 30
+default_voice: narrator
+voices:
+  narrator: "KJmTHSk3TjHp87WObL98"
+  An: "bGrXyJJO3GAb4CT9ltbv"
+  Bình: "FTYCiQT21H9XQvhRu0ch"
+characters:
+  An:
+    description: "young Vietnamese woman, shoulder-length black hair, yellow raincoat, red scarf"
+  Bình:
+    description: "young Vietnamese man, short black hair, round glasses, blue shirt, holding a black umbrella"
+music: ""
+
+scenes:
+  - id: s02
+    title: "Khách quen"
+    duration: 10
+    visual: "Medium close-up of a young man at a street food stall speaking warmly to the cook, his mouth moving naturally as he talks, then he stops speaking, smiles gently and nods with his mouth closed, steam and neon bokeh in background, romantic drama film style, speaking to camera"
+    narration: "Hôm nay cô cho thêm hành nhé. Ba tháng rồi, chưa bữa nào cô quên cả."
+    voice: Bình
+    character: Bình
+    lipsync: true

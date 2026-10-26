@@ -1,0 +1,30 @@
+# Sinh LẠI cảnh s02 demo 2 để miệng khớp lời thoại.
+# Vấn đề bản gốc: miệng chỉ cử động ~5s đầu rồi khép lại cười, trong khi
+# câu thoại dài 7.2s -> 2s cuối tiếng vẫn nói mà miệng đã khép.
+# Bản này: Hùng nói LIÊN TỤC gần như cả cảnh, chỉ cười khép miệng ở cuối.
+# Chỉ sinh 1 cảnh (tốn 1 video) rồi ráp vào final demo 2, không sinh lại s01/s03.
+title: "Phim truyện — Chuyến xe cuối cùng (s02 sinh lại)"
+kind: movie
+aspect: "16:9"
+fps: 30
+default_voice: narrator
+voices:
+  narrator: "KJmTHSk3TjHp87WObL98"
+  Lan: "bGrXyJJO3GAb4CT9ltbv"
+  Hùng: "FTYCiQT21H9XQvhRu0ch"
+characters:
+  Lan:
+    description: "young Vietnamese woman, long black hair in a low ponytail, dark green uniform jacket"
+  Hùng:
+    description: "young Vietnamese man, short black hair, round glasses, grey hoodie, holding a worn paperback book"
+music: ""
+
+scenes:
+  - id: s02
+    title: "Hành khách cuối"
+    duration: 10
+    visual: "Medium close-up of a young man on a night bus speaking warmly to the driver throughout the whole shot, his mouth moving continuously as he talks a long sentence, only at the very end he finishes, smiles gently and nods with his mouth closed, city lights bokeh through the window, romantic drama film style, speaking to camera"
+    narration: "Cô có biết không, tôi đi chuyến này một tháng rồi. Không phải vì tôi cần về nhà, mà vì tôi thích ngồi xe lúc thành phố yên lặng nhất."
+    voice: Hùng
+    character: Hùng
+    lipsync: true

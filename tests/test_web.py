@@ -162,6 +162,43 @@ class TestOutputsApi(unittest.TestCase):
         status, _, _ = self._get("/files/proj-00/khongco.mp4")
         self.assertEqual(status, 404)
 
+    def test_status_has_lipsync_configured(self):
+        status, _, body = self._get("/api/status")
+        self.assertEqual(status, 200)
+        data = json.loads(body)
+        self.assertIn("lipsync_configured", data)
+        self.assertIsInstance(data["lipsync_configured"], bool)
+
+    def test_lipsync_key_endpoint(self):
+        from unittest import mock as _mock
+        from automuse.web import server as _server_mod
+
+        class FakeSyncClient:
+            def __init__(self, key):
+                self.key = key
+
+            def check_key(self):
+                return self.key == "sk-sync-good"
+
+        saved = {}
+
+        def fake_save(key, value):
+            saved[key] = value
+
+        with _mock.patch.object(_server_mod, "SyncLipSyncClient", FakeSyncClient), \
+             _mock.patch.object(_server_mod, "save_env_key", fake_save):
+            status, data = self._post("/api/lipsync/key", {"key": "sk-sync-good"})
+            self.assertEqual(status, 200)
+            self.assertTrue(data["ok"])
+            self.assertEqual(saved.get("SYNC_API_KEY"), "sk-sync-good")
+
+            status, data = self._post("/api/lipsync/key", {"key": "sk-sync-bad"})
+            self.assertEqual(status, 400)
+            self.assertIn("error", data)
+
+            status, _data = self._post("/api/lipsync/key", {"key": ""})
+            self.assertEqual(status, 400)
+
 
 if __name__ == "__main__":
     unittest.main()

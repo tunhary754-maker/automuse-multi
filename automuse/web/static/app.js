@@ -43,10 +43,14 @@ async function loadStatus() {
     const be = $("#badge-elevenlabs");
     be.textContent = s.elevenlabs_configured ? "ElevenLabs ✓" : "ElevenLabs chưa có key";
     be.className = "badge " + (s.elevenlabs_configured ? "ok" : "warn");
+    const bl = $("#badge-lipsync");
+    bl.textContent = s.lipsync_configured ? "Sync Labs ✓" : "Sync Labs chưa có key";
+    bl.className = "badge " + (s.lipsync_configured ? "ok" : "warn");
     $("#stat-cards").innerHTML = `
       <div class="stat"><div class="num">${s.accounts}</div><div class="label">Tài khoản Muse</div></div>
       <div class="stat"><div class="num">${s.outputs}</div><div class="label">Video đã dựng</div></div>
       <div class="stat"><div class="num">${s.elevenlabs_configured ? "Có" : "Chưa"}</div><div class="label">ElevenLabs key</div></div>
+      <div class="stat"><div class="num">${s.lipsync_configured ? "Có" : "Chưa"}</div><div class="label">Sync Labs key</div></div>
       <div class="stat"><div class="num">${s.ffmpeg ? "OK" : "Thiếu"}</div><div class="label">ffmpeg</div></div>`;
     const steps = [];
     if (!s.accounts_ready) steps.push("Thêm tài khoản Muse ở tab <b>Tài khoản Muse</b> (cookie + proxy).");
@@ -205,6 +209,7 @@ $("#build-form").addEventListener("submit", async (e) => {
     no_tts: fd.get("no_tts") === "on",
     no_iris: fd.get("no_iris") === "on",
     resume: fd.get("resume") === "on",
+    lipsync: fd.get("lipsync") === "on",
     out: fd.get("out") || "",
     music: fd.get("music") || "",
     accounts: [...$("#build-accounts-select").selectedOptions].map((o) => o.value),
@@ -332,6 +337,20 @@ $("#btn-el-test").addEventListener("click", async () => {
     audio.style.display = "block";
     audio.play().catch(() => {});
     msg.textContent = "Bấm play để nghe thử.";
+  } catch (e) { msg.textContent = `Lỗi: ${e.message}`; }
+});
+
+// ---------------- lipsync ----------------
+$("#btn-save-sync-key").addEventListener("click", async () => {
+  const msg = $("#sync-msg");
+  const key = $("#sync-key").value.trim();
+  if (!key) { msg.textContent = "Chưa nhập key."; return; }
+  msg.textContent = "Đang kiểm tra key…";
+  try {
+    await api("/api/lipsync/key", { method: "POST", body: JSON.stringify({ key }) });
+    msg.textContent = "Đã lưu key Sync Labs.";
+    $("#sync-key").value = "";
+    loadStatus();
   } catch (e) { msg.textContent = `Lỗi: ${e.message}`; }
 });
 

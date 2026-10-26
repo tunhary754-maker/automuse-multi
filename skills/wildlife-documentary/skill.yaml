@@ -1,0 +1,5 @@
+name: "wildlife-documentary"
+title: "Wildlife Documentary Prompt and Video"
+description: "Make a wildlife documentary episode in Thế giới động vật style with automuse-multi: write the script, generate English video prompts, and build the video with Vietnamese narration."
+category: "Work and knowledge"
+include_in_prompt: true
