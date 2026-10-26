@@ -143,7 +143,16 @@
   <!-- ============ OUTPUTS ============ -->
   <section id="tab-outputs" class="panel">
     <h2>Kết quả <small>video đã dựng xong — xem trước và tải về</small></h2>
+    <div class="row" style="margin-bottom:12px">
+      <label class="grow">Tìm kiếm
+        <input id="outputs-search" placeholder="Tên phim, project, thể loại…" autocomplete="off">
+      </label>
+      <span class="meta" id="outputs-count-text" style="align-self:flex-end"></span>
+    </div>
     <div id="outputs-grid" class="outputs-grid"></div>
+    <div style="text-align:center;margin:16px 0">
+      <button class="btn" id="btn-more-outputs">Xem thêm</button>
+    </div>
   </section>
 </main>
 

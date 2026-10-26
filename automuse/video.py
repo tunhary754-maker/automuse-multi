@@ -29,6 +29,28 @@ def video_size(path: str | Path) -> tuple[int, int, float]:
     return int(stream["width"]), int(stream["height"]), fps
 
 
+def make_poster(src: str | Path, dst: str | Path | None = None,
+                at_seconds: float = 1.0, width: int = 640) -> Path:
+    """Chụp 1 khung hình làm ảnh đại diện (poster) cho tab Kết quả.
+
+    Tab Kết quả hiển thị ảnh thay cho thẻ <video>: mỗi thẻ chỉ tải ~50KB
+    thay vì chạm vào file video hàng chục MB. Poster được tạo lúc build
+    xong (và có thể tạo lại cho project cũ).
+    """
+    src = Path(src)
+    dst = Path(dst) if dst else src.with_name("poster.jpg")
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    duration = float(probe(src)["format"]["duration"])
+    at = max(0.0, min(at_seconds, max(0.0, duration - 0.5)))
+    cmd = [
+        "ffmpeg", "-y", "-ss", f"{at:.2f}", "-i", str(src),
+        "-vframes", "1", "-vf", f"scale={width}:-2",
+        "-q:v", "4", str(dst),
+    ]
+    run_ffmpeg(cmd)
+    return dst
+
+
 def normalize_clip(src: str | Path, dst: str | Path, width: int, height: int, fps: int) -> Path:
     """Scale/pad về đúng khung hình + fps chung để nối clip không lỗi."""
     dst = Path(dst)

@@ -310,14 +310,20 @@ $("#btn-el-test").addEventListener("click", async () => {
 });
 
 // ---------------- outputs ----------------
+// Phân trang: 1000 video cũng chỉ render 1 trang/lần. Thẻ hiển thị ảnh
+// poster (nhẹ) thay cho <video>; bấm vào ảnh mới tải video thật.
+let outputsPage = 1, outputsQuery = "", outputsTotal = 0, outputsPages = 1, outputsLoading = false;
 function outputCard(o) {
   const m = o.manifest || {};
   const scenes = m.scenes ? m.scenes.length : "?";
   const dur = m.scene_durations
     ? Object.values(m.scene_durations).reduce((a, b) => a + b, 0).toFixed(0) + "s"
     : "";
+  const media = o.poster
+    ? `<div class="poster" data-final="${esc(o.final || "")}" title="Bấm để xem video"><img src="${esc(o.poster)}" loading="lazy" alt="${esc(m.title || o.project)}"><span class="play">▶</span></div>`
+    : (o.final ? `<video controls preload="none" src="${esc(o.final)}"></video>` : "");
   return `<div class="output-card">
-    ${o.final ? `<video controls preload="metadata" src="${esc(o.final)}"></video>` : ""}
+    ${media}
     <div class="body">
       <h3>${esc(m.title || o.project)}</h3>
       <div class="meta">${esc(o.project)} · ${scenes} cảnh · ${dur} · ${(o.size / 1048576).toFixed(1)} MB
@@ -329,12 +335,42 @@ function outputCard(o) {
     </div>
   </div>`;
 }
-async function loadOutputs() {
-  const list = await api("/api/outputs");
-  $("#outputs-count").textContent = list.length ? `(${list.length})` : "";
-  $("#outputs-grid").innerHTML = list.map(outputCard).join("") || "Chưa có video nào.";
-  $("#latest-outputs").innerHTML = list.slice(0, 3).map(outputCard).join("") || "Chưa có video nào — tạo video đầu tiên ở tab <b>Tạo video</b>.";
+document.addEventListener("click", (e) => {
+  const poster = e.target.closest(".poster");
+  if (!poster || !poster.dataset.final) return;
+  const video = document.createElement("video");
+  video.controls = true; video.autoplay = true; video.preload = "metadata";
+  video.src = poster.dataset.final;
+  poster.replaceWith(video);
+});
+async function loadOutputs(reset = true) {
+  if (outputsLoading) return;
+  if (reset) {
+    outputsPage = 1;
+    outputsQuery = $("#outputs-search").value.trim();
+    $("#outputs-grid").innerHTML = "";
+  }
+  outputsLoading = true;
+  try {
+    const data = await api(`/api/outputs?page=${outputsPage}&per_page=20&q=${encodeURIComponent(outputsQuery)}`);
+    outputsTotal = data.total; outputsPages = data.pages;
+    const list = data.items;
+    $("#outputs-count").textContent = outputsTotal ? `(${outputsTotal})` : "";
+    $("#outputs-count-text").textContent = `Hiển thị ${Math.min(outputsPage * 20, outputsTotal)} / ${outputsTotal} video`;
+    $("#outputs-grid").innerHTML += list.map(outputCard).join("");
+    $("#btn-more-outputs").style.display = outputsPage < outputsPages ? "" : "none";
+    if (!list.length && outputsPage === 1) $("#outputs-grid").innerHTML = "Chưa có video nào.";
+    if (outputsPage === 1) $("#latest-outputs").innerHTML = list.slice(0, 3).map(outputCard).join("") || "Chưa có video nào — tạo video đầu tiên ở tab <b>Tạo video</b>.";
+  } catch (e) {
+    if (outputsPage === 1) $("#outputs-grid").innerHTML = `Không tải được kết quả: ${esc(e.message)}`;
+  } finally { outputsLoading = false; }
 }
+let outputsSearchTimer = null;
+$("#outputs-search").addEventListener("input", () => {
+  clearTimeout(outputsSearchTimer);
+  outputsSearchTimer = setTimeout(() => loadOutputs(true), 300);
+});
+$("#btn-more-outputs").addEventListener("click", () => { outputsPage++; loadOutputs(false); });
 
 // ---------------- init ----------------
 loadStatus(); loadAccounts(); loadScripts(); loadOutputs(); loadJobs(); loadElevenLabsCard();

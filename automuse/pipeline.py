@@ -28,6 +28,7 @@ from .video import (
     assemble_final,
     concat_clips,
     extend_clip,
+    make_poster,
     normalize_clip,
 )
 
@@ -321,6 +322,13 @@ def run_build(
         else:
             log("  ! Iris-out không áp được, giữ bản fade-out")
 
+    # -- 6. Poster cho tab Kết quả (ảnh nhẹ thay cho thẻ <video>) ---------
+    poster_path = None
+    try:
+        poster_path = make_poster(final_path)
+    except Exception:  # noqa: BLE001 - không có poster vẫn có video
+        log("  ! Không tạo được poster, tab Kết quả sẽ dùng video xem trước")
+
     manifest = {
         "title": script.title,
         "kind": script.kind,
@@ -328,6 +336,7 @@ def run_build(
         "scenes": infos,
         "scene_durations": scene_durations,
         "final": str(final_path),
+        "poster": str(poster_path) if poster_path else None,
         "subtitles": str(srt_path) if srt_path else None,
         "mock": mock,
         "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),

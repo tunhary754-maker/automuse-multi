@@ -22,7 +22,7 @@ API:
     POST /api/build                       chạy build {script, mock, accounts, no_tts, no_iris, out}
     GET  /api/jobs                        liệt kê job
     GET  /api/jobs/<id>                   trạng thái + log + manifest của job
-    GET  /api/outputs                     liệt kê video đã dựng xong
+    GET  /api/outputs                     liệt kê video đã dựng xong ?page=&per_page=&q=
     GET  /files/<project>/<file>          stream/download file (hỗ trợ Range)
 """
 
@@ -137,21 +137,47 @@ def _scripts_catalog() -> list[dict]:
     return out
 
 
-def _outputs_catalog() -> list[dict]:
+def _parse_range(range_header: str | None, size: int) -> tuple[int, int] | None:
+    """Parse 'bytes=start-end' -> (start, end) inclusive, đã kẹp vào [0, size-1].
+
+    Trả None nếu header sai định dạng / không thỏa được (caller trả 200 toàn file).
+    """
+    if not range_header or not range_header.startswith("bytes="):
+        return None
+    try:
+        start_s, end_s = range_header[6:].split("-", 1)
+        start = int(start_s) if start_s else 0
+        end = int(end_s) if end_s else size - 1
+    except ValueError:
+        return None
+    start = max(0, start)
+    end = min(end, size - 1)
+    if start > end or size <= 0:
+        return None
+    return start, end
+
+
+def _outputs_catalog(query: str | None = None) -> list[dict]:
+    """Liệt kê project đã dựng, mới nhất trước. `query` lọc theo tên
+    project / tiêu đề / kind (không phân biệt hoa thường)."""
     out: list[dict] = []
     base = DEFAULT_OUTPUT_DIR
     if not base.exists():
         return out
-    for project in sorted(base.iterdir()):
+    q = (query or "").strip().lower()
+    for project in base.iterdir():
         if not project.is_dir():
             continue
         final = project / "final.mp4"
+        poster = project / "poster.jpg"
         manifest = project / "manifest.json"
         info: dict = {
             "project": project.name,
             "final": f"/files/{project.name}/final.mp4" if final.exists() else None,
+            "poster": f"/files/{project.name}/poster.jpg" if poster.exists() else None,
             "subtitles": f"/files/{project.name}/subtitles.srt" if (project / "subtitles.srt").exists() else None,
             "size": final.stat().st_size if final.exists() else 0,
+            "mtime": final.stat().st_mtime if final.exists() else project.stat().st_mtime,
             "manifest": None,
         }
         if manifest.exists():
@@ -159,8 +185,15 @@ def _outputs_catalog() -> list[dict]:
                 info["manifest"] = json.loads(manifest.read_text(encoding="utf-8"))
             except (ValueError, OSError):
                 pass
-        if info["final"] or info["manifest"]:
-            out.append(info)
+        if not (info["final"] or info["manifest"]):
+            continue
+        if q:
+            title = str((info["manifest"] or {}).get("title", ""))
+            kind = str((info["manifest"] or {}).get("kind", ""))
+            if q not in f"{project.name} {title} {kind}".lower():
+                continue
+        out.append(info)
+    out.sort(key=lambda d: d["mtime"], reverse=True)
     return out
 
 
@@ -222,33 +255,45 @@ class StudioHandler(BaseHTTPRequestHandler):
         pass
 
     def _send_file(self, path: Path) -> None:
+        # Stream từng chunk 1MB thay vì đọc nguyên file vào RAM: mở tab
+        # Kết quả với 1000 video cũng không làm server phình RAM, và
+        # Range (tua video) chỉ đọc đúng đoạn cần thiết.
         ctype, _ = mimetypes.guess_type(str(path))
-        data = path.read_bytes()
-        # Hỗ trợ Range để <video> tua được
-        range_header = self.headers.get("Range")
-        if range_header and range_header.startswith("bytes="):
-            try:
-                start_s, end_s = range_header[6:].split("-", 1)
-                start = int(start_s) if start_s else 0
-                end = int(end_s) if end_s else len(data) - 1
-                end = min(end, len(data) - 1)
-                chunk = data[start:end + 1]
+        size = path.stat().st_size
+        span = _parse_range(self.headers.get("Range"), size)
+        f = open(path, "rb")
+        try:
+            if span is not None:
+                start, end = span
+                length = end - start + 1
                 self.send_response(206)
                 self.send_header("Content-Type", ctype or "application/octet-stream")
-                self.send_header("Content-Range", f"bytes {start}-{end}/{len(data)}")
+                self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
                 self.send_header("Accept-Ranges", "bytes")
-                self.send_header("Content-Length", str(len(chunk)))
+                self.send_header("Content-Length", str(length))
                 self.end_headers()
-                self.wfile.write(chunk)
-                return
-            except ValueError:
-                pass
-        self.send_response(200)
-        self.send_header("Content-Type", ctype or "application/octet-stream")
-        self.send_header("Accept-Ranges", "bytes")
-        self.send_header("Content-Length", str(len(data)))
-        self.end_headers()
-        self.wfile.write(data)
+                f.seek(start)
+                self._copy_range(f, length)
+            else:
+                self.send_response(200)
+                self.send_header("Content-Type", ctype or "application/octet-stream")
+                self.send_header("Accept-Ranges", "bytes")
+                self.send_header("Content-Length", str(size))
+                self.end_headers()
+                self._copy_range(f, size)
+        finally:
+            f.close()
+
+    def _copy_range(self, f, length: int, chunk: int = 1024 * 1024) -> None:
+        """Chép đúng `length` byte từ file ra socket theo từng chunk —
+        không đọc nguyên file vào RAM."""
+        remaining = length
+        while remaining > 0:
+            data = f.read(min(chunk, remaining))
+            if not data:
+                break
+            self.wfile.write(data)
+            remaining -= len(data)
 
     # -- routing ----------------------------------------------------
     def do_GET(self):
@@ -316,7 +361,28 @@ class StudioHandler(BaseHTTPRequestHandler):
             return _json(self, job)
 
         if path == "/api/outputs":
-            return _json(self, _outputs_catalog())
+            # Phân trang: 1000 video cũng chỉ trả 1 trang/lần (mặc định 20).
+            try:
+                page = max(1, int(qs.get("page", ["1"])[0]))
+            except ValueError:
+                page = 1
+            try:
+                per_page = min(100, max(1, int(qs.get("per_page", ["20"])[0])))
+            except ValueError:
+                per_page = 20
+            q = qs.get("q", [""])[0]
+            all_items = _outputs_catalog(q or None)
+            total = len(all_items)
+            pages = max(1, (total + per_page - 1) // per_page)
+            page = min(page, pages)
+            start = (page - 1) * per_page
+            return _json(self, {
+                "items": all_items[start:start + per_page],
+                "page": page,
+                "per_page": per_page,
+                "total": total,
+                "pages": pages,
+            })
 
         if path.startswith("/files/"):
             rel = path[len("/files/"):]
