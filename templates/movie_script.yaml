@@ -1,0 +1,29 @@
+# Kịch bản mẫu: PHIM TRUYỆN NGẮN (nhiều nhân vật, thoại đối đáp)
+# Mỗi nhân vật gắn 1 giọng ElevenLabs riêng trong bảng voices.
+# Chạy thử: python cli.py build --script scripts/phim.yaml --mock
+title: "Phim truyện ngắn — Tập mẫu"
+kind: movie
+aspect: "16:9"
+fps: 30
+default_voice: narrator
+voices:
+  narrator: "21m00Tcm4TlvDq8ikWAM"   # đổi thành voice_id thật của bạn
+  An: "EXAVITQu4vr4xnSDxMaL"        # ví dụ: Bella
+  Bình: "TxGEqnHWKZ17j1QkYp7w"      # ví dụ: Josh
+music: ""
+
+scenes:
+  - id: s01
+    title: "Gặp nhau"
+    duration: 6
+    visual: "Rainy Saigon street at night, neon signs reflecting on wet asphalt, a young woman with umbrella waiting under an awning, cinematic film still, moody lighting"
+    narration: "Sài Gòn, mười một giờ đêm. Cơn mưa bất chợt khiến An phải trú dưới mái hiên này."
+    voice: narrator
+
+  - id: s02
+    title: "Câu nói đầu tiên"
+    duration: 6
+    visual: "Close-up of a young man smiling warmly offering his umbrella to a surprised young woman, rain bokeh in background, romantic drama film style"
+    narration: "Cô trú mưa ở đây à? Tôi có hai chiếc ô, cô lấy một chiếc đi."
+    voice: Bình
+    character: Bình

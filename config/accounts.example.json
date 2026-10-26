@@ -1,0 +1,1 @@
+{"accounts":[{"cookie":"sessionid=PASTE_COOKIE_ACC1; csrftoken=xxx","cookie_file":"","enabled":true,"name":"acc1","note":"Acc chính","proxy":"http://user:pass@proxy1.example.com:8080"},{"cookie":"","cookie_file":"config/cookies-acc2.txt","enabled":true,"name":"acc2","note":"Cookie lấy từ file export trình duyệt","proxy":"socks5://user:pass@proxy2.example.com:1080"}]}

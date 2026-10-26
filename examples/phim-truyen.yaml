@@ -1,0 +1,59 @@
+# VÍ DỤ: Phim truyện ngắn — "Chiếc ô" (6 cảnh, ~40s)
+# Chạy thử: python cli.py build --script examples/phim-truyen.yaml --mock
+title: "Chiếc ô"
+kind: movie
+aspect: "16:9"
+fps: 30
+default_voice: narrator
+voices:
+  narrator: "21m00Tcm4TlvDq8ikWAM"
+  An: "EXAVITQu4vr4xnSDxMaL"
+  Bình: "TxGEqnHWKZ17j1QkYp7w"
+music: ""
+
+scenes:
+  - id: s01
+    title: "Mưa đêm Sài Gòn"
+    duration: 6
+    visual: "Rainy Saigon street at night, neon signs reflecting on wet asphalt, a young woman with umbrella waiting under an awning, cinematic film still, moody lighting"
+    narration: "Sài Gòn, mười một giờ đêm. Cơn mưa bất chợt khiến An phải trú dưới mái hiên này."
+    voice: narrator
+
+  - id: s02
+    title: "Câu nói đầu tiên"
+    duration: 6
+    visual: "Close-up of a young man smiling warmly offering his umbrella to a surprised young woman, rain bokeh in background, romantic drama film style"
+    narration: "Cô trú mưa ở đây à? Tôi có hai chiếc ô, cô lấy một chiếc đi."
+    voice: Bình
+    character: Bình
+
+  - id: s03
+    title: "Ngập ngừng"
+    duration: 7
+    visual: "Young woman hesitating, looking at the umbrella then at the smiling man, rain falling around them, soft neon light, cinematic medium shot"
+    narration: "Nhưng mà... anh đưa ô cho tôi rồi anh thì sao? Anh cũng sẽ ướt hết đấy."
+    voice: An
+    character: An
+
+  - id: s04
+    title: "Cùng đi"
+    duration: 7
+    visual: "Two people walking side by side under one umbrella in the rain, laughing, city lights blurred in background, warm romantic cinematography"
+    narration: "Hay là thế này, chúng ta đi chung một ô. Nhà tôi cũng ở hướng này thôi."
+    voice: Bình
+    character: Bình
+
+  - id: s05
+    title: "Nụ cười"
+    duration: 7
+    visual: "Close-up of young woman laughing under umbrella, raindrops on her hair, neon city lights bokeh, joyful romantic moment, film still"
+    narration: "An bật cười. Đã lâu lắm rồi cô mới cười như vậy trong một đêm mưa."
+    voice: narrator
+
+  - id: s06
+    title: "Hẹn gặp lại"
+    duration: 7
+    visual: "Two people parting at a street corner at dawn after rain, waving goodbye, golden morning light breaking through clouds, hopeful ending, wide cinematic shot"
+    narration: "Sáng mai, bảy giờ, ở quán cà phê cuối phố nhé. Đừng quên mang ô đấy."
+    voice: An
+    character: An

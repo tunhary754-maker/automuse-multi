@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AutoMuse Studio — Quản lý video AI</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header>
+  <div class="brand">🎬 AutoMuse <span>Studio</span></div>
+  <div class="status" id="status-badges">
+    <span class="badge" id="badge-ffmpeg">ffmpeg …</span>
+    <span class="badge" id="badge-accounts">acc …</span>
+    <span class="badge" id="badge-elevenlabs">ElevenLabs …</span>
+  </div>
+</header>
+
+<nav class="tabs">
+  <button class="tab active" data-tab="dashboard">Tổng quan</button>
+  <button class="tab" data-tab="accounts">Tài khoản Muse</button>
+  <button class="tab" data-tab="scripts">Kịch bản</button>
+  <button class="tab" data-tab="build">Tạo video</button>
+  <button class="tab" data-tab="outputs">Kết quả <span class="count" id="outputs-count"></span></button>
+</nav>
+
+<main>
+  <!-- ============ DASHBOARD ============ -->
+  <section id="tab-dashboard" class="panel active">
+    <div class="cards" id="stat-cards"></div>
+    <h2>Video mới nhất</h2>
+    <div id="latest-outputs" class="outputs-grid"></div>
+    <h2>Việc cần làm</h2>
+    <ol class="todo" id="next-steps"></ol>
+  </section>
+
+  <!-- ============ ACCOUNTS ============ -->
+  <section id="tab-accounts" class="panel">
+    <h2>Tài khoản Muse <small>đăng nhập bằng cookie, proxy riêng từng acc</small></h2>
+    <form id="account-form" class="card form">
+      <div class="row">
+        <label>Tên acc <input name="name" placeholder="acc1" required></label>
+        <label>Proxy <input name="proxy" placeholder="http://user:pass@host:port (tùy chọn)"></label>
+      </div>
+      <label>Cookie <span class="hint">dán chuỗi header Cookie từ muse.ai (F12 → Network), hoặc đường dẫn file cookies.txt</span>
+        <textarea name="cookie" rows="3" placeholder="sessionid=...; csrftoken=..."></textarea></label>
+      <label>File cookie (thay cho chuỗi trên) <input name="cookie_file" placeholder="config/cookies-acc1.txt"></label>
+      <label>Ghi chú <input name="note" placeholder="Acc chính"></label>
+      <button type="submit" class="btn primary">+ Thêm tài khoản</button>
+      <span class="msg" id="account-msg"></span>
+    </form>
+    <table class="table" id="accounts-table">
+      <thead><tr><th>Tên</th><th>Proxy</th><th>Jobs</th><th>Trạng thái</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </section>
+
+  <!-- ============ SCRIPTS ============ -->
+  <section id="tab-scripts" class="panel">
+    <h2>Kịch bản <small>YAML hoặc Markdown — visual tiếng Anh, lời thoại tiếng Việt</small></h2>
+    <div class="scripts-layout">
+      <div class="card">
+        <div class="row between">
+          <strong>Danh sách</strong>
+          <span>
+            <button class="btn small" id="btn-new-script">+ Kịch bản mới</button>
+            <button class="btn small" id="btn-template-movie">Mẫu phim truyện</button>
+            <button class="btn small" id="btn-template-doc">Mẫu tài liệu</button>
+          </span>
+        </div>
+        <ul class="list" id="scripts-list"></ul>
+      </div>
+      <div class="card editor">
+        <div class="row between">
+          <strong id="editor-title">Chưa chọn kịch bản</strong>
+          <span>
+            <button class="btn small primary" id="btn-save-script">💾 Lưu</button>
+            <button class="btn small" id="btn-build-script">▶ Tạo video từ kịch bản này</button>
+          </span>
+        </div>
+        <textarea id="script-editor" rows="24" spellcheck="false"
+          placeholder="Chọn một kịch bản bên trái để xem/sửa, hoặc bấm + Kịch bản mới."></textarea>
+        <span class="msg" id="script-msg"></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ BUILD ============ -->
+  <section id="tab-build" class="panel">
+    <h2>Tạo video <small>chọn kịch bản → chạy queue → xem log trực tiếp</small></h2>
+    <form id="build-form" class="card form">
+      <div class="row">
+        <label class="grow">Kịch bản
+          <select name="script" id="build-script-select" required></select>
+        </label>
+        <label>Tài khoản dùng
+          <select name="accounts" id="build-accounts-select" multiple size="3"></select>
+        </label>
+      </div>
+      <div class="row checks">
+        <label><input type="checkbox" name="mock"> Chạy thử (mock — không cần acc/key)</label>
+        <label><input type="checkbox" name="no_tts"> Không lồng tiếng</label>
+        <label><input type="checkbox" name="no_iris"> Không iris-out</label>
+        <label><input type="checkbox" name="resume"> Chạy tiếp từ chỗ dừng</label>
+      </div>
+      <div class="row">
+        <label class="grow">Thư mục đầu ra (tùy chọn) <input name="out" placeholder="output/ten-phim (để trống = tự đặt theo tên kịch bản)"></label>
+        <label class="grow">Nhạc nền (tùy chọn) <input name="music" placeholder="đường dẫn file mp3/wav"></label>
+      </div>
+      <button type="submit" class="btn primary big" id="btn-start-build">▶ Bắt đầu tạo video</button>
+      <span class="msg" id="build-msg"></span>
+    </form>
+    <div class="card">
+      <div class="row between">
+        <strong>Tiến độ <span id="job-status" class="badge">chưa chạy</span></strong>
+        <span id="job-meta"></span>
+      </div>
+      <div class="progress"><div id="progress-bar"></div></div>
+      <pre id="job-log" class="log">Chưa có log. Bấm “Bắt đầu tạo video” để chạy.</pre>
+    </div>
+    <h3>Lịch sử chạy</h3>
+    <ul class="list" id="jobs-list"></ul>
+  </section>
+
+  <!-- ============ OUTPUTS ============ -->
+  <section id="tab-outputs" class="panel">
+    <h2>Kết quả <small>video đã dựng xong — xem trước và tải về</small></h2>
+    <div id="outputs-grid" class="outputs-grid"></div>
+  </section>
+</main>
+
+<footer>
+  AutoMuse Studio chạy local trên máy của bạn — cookie và API key không rời khỏi máy.
+  Xem hướng dẫn đầy đủ trong <code>README.md</code>.
+</footer>
+
+<script src="/app.js"></script>
+</body>
+</html>

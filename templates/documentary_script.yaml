@@ -1,0 +1,29 @@
+# Kịch bản mẫu: PHIM TÀI LIỆU / THẾ GIỚI ĐỘNG VẬT
+# Sửa visual (prompt tiếng Anh) + narration (lời dẫn tiếng Việt) rồi chạy:
+#   python cli.py build --script scripts/dong-vat.yaml --mock
+#   python cli.py build --script scripts/dong-vat.yaml   # chạy thật
+title: "Thế giới động vật — Tập mẫu"
+kind: documentary
+aspect: "16:9"
+fps: 30
+default_voice: narrator
+voices:
+  # Tên giọng -> voice_id ElevenLabs (chạy `python cli.py voices` để xem).
+  # Để trống tên giọng thì dùng voice_id mặc định của ElevenLabs.
+  narrator: "21m00Tcm4TlvDq8ikWAM"   # ví dụ: Rachel (đổi theo acc của bạn)
+music: ""   # đường dẫn file nhạc nền mp3/wav (tùy chọn)
+
+scenes:
+  - id: s01
+    title: "Mở đầu"
+    duration: 8
+    visual: "Cinematic aerial shot of African savanna at golden dawn, mist over grassland, a lion pride walking in distance, National Geographic documentary style, 4k"
+    narration: "Bình minh lên trên thảo nguyên châu Phi. Một ngày mới bắt đầu với bầy sư tử đang trở về sau chuyến săn đêm."
+    voice: narrator
+
+  - id: s02
+    title: "Săn mồi"
+    duration: 8
+    visual: "Slow motion lioness stalking through tall golden grass, intense eyes, dust in the air, wildlife documentary cinematography"
+    narration: "Sư tử cái di chuyển nhẹ nhàng trong cỏ cao. Mỗi bước chân đều được tính toán kỹ lưỡng."
+    voice: narrator

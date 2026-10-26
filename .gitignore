@@ -1,0 +1,12 @@
+.env
+config/accounts.json
+config/settings.yaml
+config/cookies*.txt
+config/*.json
+!config/accounts.example.json
+!config/settings.example.yaml
+output/
+cache/
+__pycache__/
+*.pyc
+.DS_Store

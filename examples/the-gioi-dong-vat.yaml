@@ -1,0 +1,54 @@
+# VÍ DỤ: Thế giới động vật — "Vua của thảo nguyên" (6 cảnh, ~48s)
+# Chạy thử toàn bộ pipeline (không cần acc/key):
+#   python cli.py build --script examples/the-gioi-dong-vat.yaml --mock
+title: "Thế giới động vật — Vua của thảo nguyên"
+kind: documentary
+aspect: "16:9"
+fps: 30
+default_voice: narrator
+voices:
+  narrator: "21m00Tcm4TlvDq8ikWAM"
+music: ""
+
+scenes:
+  - id: s01
+    title: "Bình minh thảo nguyên"
+    duration: 8
+    visual: "Cinematic aerial shot of African savanna at golden dawn, mist over grassland, acacia trees silhouetted, a lion pride walking in distance, National Geographic documentary style"
+    narration: "Bình minh lên trên thảo nguyên châu Phi. Một ngày mới bắt đầu, và bầy sư tử đang trở về sau chuyến săn đêm."
+    voice: narrator
+
+  - id: s02
+    title: "Sư tử cái rình mồi"
+    duration: 8
+    visual: "Slow motion lioness stalking through tall golden grass, intense amber eyes, dust floating in warm sunlight, wildlife documentary cinematography"
+    narration: "Sư tử cái di chuyển nhẹ nhàng trong cỏ cao. Mỗi bước chân đều được tính toán kỹ lưỡng, không một tiếng động."
+    voice: narrator
+
+  - id: s03
+    title: "Đàn linh dương"
+    duration: 8
+    visual: "Wide shot of a herd of antelopes grazing peacefully on the savanna, ears twitching, alert, golden hour light, BBC Earth style"
+    narration: "Đàn linh dương vẫn đang gặm cỏ, nhưng đôi tai của chúng không ngừng cử động. Chúng cảm nhận được nguy hiểm đang đến gần."
+    voice: narrator
+
+  - id: s04
+    title: "Cuộc rượt đuổi"
+    duration: 8
+    visual: "High speed chase across the savanna, lioness sprinting after an antelope, dust clouds, dynamic camera tracking, dramatic wildlife action"
+    narration: "Và rồi, cuộc rượt đuổi bắt đầu. Chỉ trong vài giây, kẻ săn và con mồi sẽ phân định thắng thua."
+    voice: narrator
+
+  - id: s05
+    title: "Vua sư tử"
+    duration: 8
+    visual: "Majestic male lion with dark mane standing on a rocky outcrop at sunset, roaring, wind blowing mane, epic low angle shot, golden light"
+    narration: "Tiếng gầm vang vọng khắp thảo nguyên. Đó là lời khẳng định của vị vua nơi đây."
+    voice: narrator
+
+  - id: s06
+    title: "Hoàng hôn"
+    duration: 8
+    visual: "Lion pride resting together under an acacia tree at sunset, cubs playing, warm orange sky, peaceful ending, cinematic wide shot"
+    narration: "Khi hoàng hôn buông xuống, bầy sư tử quây quần bên nhau. Một ngày nữa lại trôi qua trên thảo nguyên."
+    voice: narrator

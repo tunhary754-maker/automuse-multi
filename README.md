@@ -1,0 +1,238 @@
+# 🎬 AutoMuse Multi — Video dài multi-account + lồng tiếng ElevenLabs
+
+Tạo video dài theo kịch bản (phim truyện, thế giới động vật, tài liệu...) bằng
+cách sinh từng cảnh bằng Muse AI rồi dựng thành phim hoàn chỉnh, lồng tiếng
+bằng ElevenLabs theo đúng lời thoại trong kịch bản.
+
+Lấy cảm hứng từ [saitama9x/automuse-ai-video-generator](https://github.com/saitama9x/automuse-ai-video-generator)
+(dùng cookie session muse.ai để batch video), nhưng viết lại thành repo Python
+chạy CLI, thêm:
+
+- 🔑 **Login nhiều acc Muse bằng cookies** — chuỗi cookie thô, file
+  `cookies.txt` (Netscape) hoặc JSON export từ trình duyệt.
+- 🌐 **Proxy riêng từng acc** — `http/https/socks5`, có lệnh kiểm tra proxy
+  và kiểm tra cookie còn sống không.
+- 🎞️ **Video dài theo kịch bản** — mỗi cảnh là 1 clip Muse, tự nối thành
+  phim 1 phút, 10 phút hay dài hơn; có template **phim truyện** và
+  **thế giới động vật**.
+- 🎙️ **Lồng tiếng theo kịch bản** — ElevenLabs đọc lời thoại từng cảnh,
+  nhiều giọng cho nhiều nhân vật, tự căn đúng mốc thời gian, kèm phụ đề SRT,
+  nhạc nền, fade-out / iris-out cuối phim.
+- 🔁 **Chia tải qua các acc** — round-robin, acc lỗi tự đổi acc khác,
+  cooldown sau 3 lỗi liên tiếp, `--resume` chạy tiếp từ chỗ dừng.
+
+## Yêu cầu
+
+- Python 3.10+, `pip install -r requirements.txt`
+- `ffmpeg` + `ffprobe` (cài sẵn trong PATH)
+- Cookie session muse.ai (xem bên dưới) — chỉ cần khi chạy thật
+- API key ElevenLabs (xem bên dưới) — chỉ cần khi lồng tiếng thật
+
+## Cài đặt
+
+```bash
+git clone <repo-cua-ban> automuse-multi
+cd automuse-multi
+pip install -r requirements.txt
+cp config/settings.example.yaml config/settings.yaml
+cp .env.example .env   # rồi điền ELEVENLABS_API_KEY
+```
+
+## 1. Thêm tài khoản Muse (cookie + proxy)
+
+**Lấy cookie:** đăng nhập [muse.ai](https://muse.ai) trên trình duyệt →
+F12 → Network → copy giá trị header `Cookie`. Hoặc dùng extension
+"Get cookies.txt" / "Cookie-Editor" để export file.
+
+```bash
+# Thêm acc bằng chuỗi cookie + proxy riêng
+python cli.py accounts add --name acc1 \
+  --cookie "sessionid=abc123; csrftoken=xyz" \
+  --proxy http://user:pass@proxy1.example.com:8080
+
+# Hoặc bằng file cookies.txt export từ trình duyệt
+python cli.py accounts add --name acc2 --cookie-file config/cookies-acc2.txt \
+  --proxy socks5://user:pass@proxy2.example.com:1080
+
+# Kiểm tra proxy + cookie còn sống không
+python cli.py accounts check
+python cli.py accounts check --name acc1
+python cli.py accounts list
+```
+
+Cookie và proxy lưu ở `config/accounts.json` (quyền 0600, đã gitignore —
+không commit file này). Có thể sửa tay theo mẫu
+`config/accounts.example.json`.
+
+> ⚠️ Chỉ dùng tài khoản của chính bạn, chạy với tốc độ vừa phải
+> (`delay_between_jobs` trong settings.yaml). Việc tự động hóa bằng cookie
+> có thể vi phạm điều khoản của Muse — bạn tự chịu trách nhiệm với acc của mình.
+
+## 2. Lồng tiếng ElevenLabs
+
+Lấy key tại [elevenlabs.io](https://elevenlabs.io) → đặt vào `.env`:
+
+```
+ELEVENLABS_API_KEY=sk_...
+```
+
+```bash
+python cli.py voices            # liệt kê giọng (lấy voice_id)
+```
+
+Trong kịch bản, bảng `voices:` map tên giọng (vd: `narrator`, `An`, `Bình`)
+sang `voice_id`. Có thể dùng tên giọng thay cho ID — tool tự resolve.
+
+## 3. Viết kịch bản
+
+Tạo từ template:
+
+```bash
+python cli.py init --kind documentary --out scripts/dong-vat.yaml
+python cli.py init --kind movie --out scripts/phim.yaml
+```
+
+Hoặc xem ví dụ có sẵn: `examples/the-gioi-dong-vat.yaml`,
+`examples/phim-truyen.yaml`.
+
+**Định dạng YAML** (đủ nhất):
+
+```yaml
+title: "Thế giới động vật — Vua của thảo nguyên"
+kind: documentary
+aspect: "16:9"          # 16:9 hoặc 9:16
+default_voice: narrator
+voices:
+  narrator: "21m00Tcm4TlvDq8ikWAM"
+music: "assets/nhac-nen.mp3"   # tùy chọn
+scenes:
+  - id: s01
+    title: "Bình minh thảo nguyên"
+    duration: 8
+    visual: "Cinematic aerial shot of African savanna at golden dawn, ..."
+    narration: "Bình minh lên trên thảo nguyên châu Phi..."
+    voice: narrator
+```
+
+**Định dạng Markdown** cũng được (dễ viết hơn):
+
+```markdown
+# Vua của thảo nguyên
+kind: documentary
+aspect: 16:9
+
+## Cảnh 1 — Bình minh (8s)
+Visual: Cinematic aerial shot of African savanna at golden dawn...
+Lời thoại: Bình minh lên trên thảo nguyên châu Phi...
+Giọng: narrator
+```
+
+Lưu ý:
+
+- `visual` là prompt **tiếng Anh** đưa cho Muse sinh clip.
+- `narration` là lời thoại **tiếng Việt** đưa cho ElevenLabs đọc.
+- Nếu lời thoại dài hơn `duration`, clip tự kéo dài bằng cách đóng băng
+  khung hình cuối để lời đọc không bị cắt.
+
+## 4. Chạy
+
+```bash
+# Chạy thử toàn bộ pipeline, không cần acc/key (clip mẫu + tiếng im lặng)
+python cli.py build --script examples/the-gioi-dong-vat.yaml --mock
+```
+
+### Web Studio (giao diện quản lý kiểu automuse.site)
+
+Không thích gõ lệnh thì mở giao diện web:
+
+```bash
+python cli.py web            # mở http://127.0.0.1:8080
+python cli.py web --port 8080
+```
+
+Trên web có đủ: **Tổng quan** (số acc, số video, việc cần làm) →
+**Tài khoản Muse** (thêm/xóa/kiểm tra cookie + proxy) →
+**Kịch bản** (xem/sửa/lưu kịch bản, mẫu phim truyện + tài liệu) →
+**Tạo video** (chọn kịch bản, tick acc dùng, chạy queue, xem log trực tiếp) →
+**Kết quả** (xem trước video, tải `final.mp4` và phụ đề `.srt`).
+
+Server chỉ nghe trên máy của bạn (`127.0.0.1`) nên cookie và key không
+rời khỏi máy. Muốn mở từ máy khác trong mạng LAN thì chạy
+`python cli.py web --host 0.0.0.0` (chỉ dùng trong mạng tin cậy).
+
+### Chạy bằng CLI
+
+```bash
+# Chạy thật (dùng các acc đã thêm + ElevenLabs key trong .env)
+python cli.py build --script scripts/dong-vat.yaml --out output/dong-vat-tap1
+
+# Chỉ dùng acc1 và acc2, chạy tiếp từ chỗ dừng
+python cli.py build --script scripts/phim.yaml --accounts acc1,acc2 --resume
+
+# Chỉ sinh clip (không lồng tiếng) / chỉ lồng tiếng
+python cli.py generate --script scripts/phim.yaml
+python cli.py dub --script scripts/phim.yaml
+
+# Tắt iris-out cuối phim, hoặc tắt hẳn lồng tiếng
+python cli.py build --script scripts/phim.yaml --no-iris
+python cli.py build --script scripts/phim.yaml --no-tts
+```
+
+Kết quả trong `output/<ten-kich-ban>/`:
+
+```
+final.mp4        # phim hoàn chỉnh (video + lời thoại + nhạc nền + phụ đề)
+subtitles.srt    # phụ đề theo từng cảnh
+video_silent.mp4 # bản video chưa có tiếng
+clips/s01.mp4 ...# clip từng cảnh
+audio/           # file TTS từng cảnh + narration.wav
+manifest.json    # cảnh nào do acc nào sinh, độ dài, thời gian tạo
+```
+
+## Cấu trúc repo
+
+```
+automuse-multi/
+├── cli.py                  # CLI chính
+├── automuse/
+│   ├── accounts.py         # multi-account: cookie + proxy + round-robin
+│   ├── muse_client.py      # client Muse (thật + mock)
+│   ├── script.py           # đọc kịch bản YAML/Markdown
+│   ├── elevenlabs.py       # TTS ElevenLabs (+ mock)
+│   ├── audio.py            # timeline lời thoại, nhạc nền, SRT
+│   ├── video.py            # ffmpeg: chuẩn hóa, nối, iris-out
+│   ├── pipeline.py         # pipeline build full
+│   └── config.py           # settings.yaml + .env
+├── config/
+│   ├── settings.example.yaml
+│   └── accounts.example.json
+├── templates/              # mẫu kịch bản movie / documentary
+├── examples/               # 2 kịch bản ví dụ chạy được ngay
+└── tests/
+```
+
+## Tùy chỉnh API Muse
+
+API web của Muse không công khai. Các endpoint mặc định nằm trong
+`config/settings.yaml` (`muse.base_url`, `generate_video_path`,
+`job_status_path`...). Nếu Muse đổi API, bạn chỉ cần mở DevTools trên
+muse.ai → tab Network → bấm Generate → copy đúng path/method rồi sửa
+`settings.yaml` là chạy tiếp, không cần đụng code.
+
+Chế độ `--mock` luôn chạy được để kiểm tra pipeline mà không cần acc thật.
+
+## Troubleshooting
+
+| Lỗi | Cách xử lý |
+|---|---|
+| `Cookie hết hạn (401/403)` | Lấy lại cookie mới, `accounts add` lại (hoặc sửa `config/accounts.json`) |
+| `Bị rate-limit (429)` | Để acc nghỉ — tool tự cooldown sau 3 lỗi; giảm `delay_between_jobs`? Không — **tăng** delay lên |
+| Proxy lỗi | `python cli.py accounts check --name <tên>` để xem proxy hay cookie lỗi |
+| `ffmpeg: command not found` | Cài ffmpeg và thêm vào PATH |
+| Lời thoại dài hơn clip | Bình thường — pipeline tự kéo dài clip bằng khung hình cuối |
+| ElevenLabs 401 | Kiểm tra `ELEVENLABS_API_KEY` trong `.env` |
+
+## License
+
+MIT — dùng cho mục đích cá nhân, tự chịu trách nhiệm với tài khoản và
+nội dung bạn tạo ra.

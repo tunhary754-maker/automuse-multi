@@ -1,0 +1,4 @@
+requests>=2.31
+pyyaml>=6.0
+# Tùy chọn: để dùng proxy socks5 (vd: socks5://user:pass@host:port)
+# pysocks>=1.7
