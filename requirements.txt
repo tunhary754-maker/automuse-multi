@@ -1,4 +1,7 @@
 requests>=2.31
 pyyaml>=6.0
+# Gateway transport thật (Noise WebSocket tới muse.ai):
+noiseprotocol>=0.3
+websocket-client>=1.8
 # Tùy chọn: để dùng proxy socks5 (vd: socks5://user:pass@host:port)
 # pysocks>=1.7

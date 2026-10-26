@@ -1,0 +1,15 @@
+# TEST: 1 cảnh thật (không mock, không TTS) — kiểm tra API thật của Muse
+title: "Test 1 scene — Bình minh thảo nguyên"
+kind: documentary
+aspect: "16:9"
+fps: 30
+default_voice: narrator
+music: ""
+
+scenes:
+  - id: s01
+    title: "Bình minh thảo nguyên"
+    duration: 8
+    visual: "Cinematic aerial shot of African savanna at golden dawn, mist over grassland, acacia trees silhouetted, a lion pride walking in distance, National Geographic documentary style"
+    narration: "Bình minh lên trên thảo nguyên châu Phi. Một ngày mới bắt đầu, và bầy sư tử đang trở về sau chuyến săn đêm."
+    voice: narrator

@@ -22,6 +22,7 @@ from .config import DEFAULT_CACHE_DIR, DEFAULT_OUTPUT_DIR
 from .elevenlabs import build_elevenlabs, estimate_speech_duration
 from .muse_client import build_client
 from .script import Scene, Script, load_script, validate
+from .usage import UsageTracker
 from .video import (
     apply_iris_out,
     assemble_final,
@@ -56,8 +57,10 @@ def generate_clips(
     account_names: list[str] | None = None,
     scene_durations: dict[str, float] | None = None,
     resume: bool = False,
+    tracker: UsageTracker | None = None,
 ) -> tuple[list[Path], list[dict]]:
     """Sinh clip cho từng cảnh. Trả về (danh sách clip, thông tin từng cảnh)."""
+    tracker = tracker or UsageTracker()
     clips_dir = out_dir / "clips"
     clips_dir.mkdir(parents=True, exist_ok=True)
     width, height = ASPECT_SIZE.get(script.aspect, (1280, 720))
@@ -75,10 +78,43 @@ def generate_clips(
             infos.append({"id": scene.id, "account": "cached", "duration": target})
             continue
 
+        # -- giới hạn tuần: chỉ dùng acc còn quota, hết thì dừng rõ ràng --
+        eligible_names: list[str] | None = None
+        if mock:
+            if not tracker.has_budget("mock", settings):
+                r = tracker.remaining("mock", settings)
+                raise RuntimeError(
+                    f"Hết giới hạn tuần: đã dùng {r['videos']} video, "
+                    f"{r['minutes']} phút trong tuần {r['week']} — "
+                    "tăng limits.weekly_max_videos/minutes trong settings.yaml"
+                )
+        else:
+            pool = manager.enabled_accounts()
+            if account_names:
+                wanted = set(account_names)
+                pool = [a for a in pool if a.name in wanted]
+            if pool:
+                eligible = [
+                    a for a in pool
+                    if not a.is_on_cooldown() and tracker.has_budget(a, settings)
+                ]
+                if not eligible:
+                    exhausted = ", ".join(
+                        f"{a.name} ({tracker.remaining(a, settings)['videos']} video, "
+                        f"{tracker.remaining(a, settings)['minutes']} phút)"
+                        for a in pool
+                    )
+                    raise RuntimeError(
+                        f"Hết giới hạn tuần: không còn acc nào dùng được — {exhausted}. "
+                        "Tăng giới hạn trong settings.yaml hoặc `accounts set-limit`, "
+                        "hoặc đợi sang tuần mới."
+                    )
+                eligible_names = [a.name for a in eligible]
+
         last_error = ""
         done = False
         for attempt in range(1, max_retries + 1):
-            account = manager.pick(account_names) if not mock else None
+            account = manager.pick(eligible_names or account_names) if not mock else None
             client = build_client(account, settings, mock=mock)
             who = account.name if account else "mock"
             log(f"{scene.id} (lần {attempt}/{max_retries}) qua acc '{who}' — {scene.title}")
@@ -99,6 +135,7 @@ def generate_clips(
                     tmp.unlink(missing_ok=True)
                 if account:
                     manager.mark_success(account)
+                    tracker.record(account.name, "video", target, project=script.title)
                 clips.append(dest)
                 infos.append({"id": scene.id, "account": who, "duration": target})
                 done = True
@@ -127,10 +164,12 @@ def run_build(
     account_names: list[str] | None = None,
     music: str | None = None,
     api_key: str = "",
+    tracker: UsageTracker | None = None,
 ) -> dict:
     """Chạy toàn bộ pipeline, trả về manifest dict."""
     settings = settings or {}
     manager = manager or AccountManager()
+    tracker = tracker or UsageTracker()
     script = load_script(script_path)
     errors = validate(script)
     if errors:
@@ -186,6 +225,7 @@ def run_build(
     clips, infos = generate_clips(
         script, out_dir, settings, manager, mock=mock,
         account_names=account_names, scene_durations=scene_durations, resume=resume,
+        tracker=tracker,
     )
 
     # -- 3. Chuẩn hóa + nối -------------------------------------------

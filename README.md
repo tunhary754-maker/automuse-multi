@@ -54,10 +54,17 @@ python cli.py accounts add --name acc1 \
 python cli.py accounts add --name acc2 --cookie-file config/cookies-acc2.txt \
   --proxy socks5://user:pass@proxy2.example.com:1080
 
-# Kiểm tra proxy + cookie còn sống không
+# Kiểm tra proxy + cookie còn sống không (+ token/quota + mức dùng tuần)
 python cli.py accounts check
 python cli.py accounts check --name acc1
 python cli.py accounts list
+
+# Xem mức dùng tuần này so với giới hạn (tuần lịch, thứ Hai 00:00 -> thứ Hai sau)
+python cli.py accounts usage
+python cli.py accounts usage --name acc1
+
+# Đặt giới hạn tuần riêng cho một acc (0 = dùng giới hạn chung)
+python cli.py accounts set-limit --name acc1 --videos 30 --minutes 180
 ```
 
 Cookie và proxy lưu ở `config/accounts.json` (quyền 0600, đã gitignore —
@@ -67,6 +74,23 @@ không commit file này). Có thể sửa tay theo mẫu
 > ⚠️ Chỉ dùng tài khoản của chính bạn, chạy với tốc độ vừa phải
 > (`delay_between_jobs` trong settings.yaml). Việc tự động hóa bằng cookie
 > có thể vi phạm điều khoản của Muse — bạn tự chịu trách nhiệm với acc của mình.
+
+### Check token/quota + giới hạn tuần
+
+- **Check token/quota:** `accounts check` thử đọc số dư qua các endpoint
+  `/api/user/usage`, `/api/credits`, `/api/quota`… rồi báo `OK` (kèm số dư),
+  `LỖI` (cookie hết hạn) hoặc `KHÔNG RÕ` (API Muse không công khai nên không
+  đọc được — lúc này giới hạn tuần cục bộ là cơ chế chính). Danh sách endpoint
+  thử nằm ở `muse.quota_check_paths` trong settings.yaml.
+- **Giới hạn tuần:** mỗi clip sinh thành công ghi một sự kiện vào
+  `cache/usage.json`. Mặc định mỗi acc tối đa **20 video / 120 phút mỗi tuần**
+  (tuần lịch, thứ Hai 00:00 → thứ Hai tuần sau). Hết giới hạn thì pipeline tự
+  đổi sang acc khác còn quota; hết tất cả thì dừng build với thông báo rõ ràng.
+  Đổi số chung trong `limits` ở `config/settings.yaml`, hoặc đặt riêng từng acc
+  bằng `accounts set-limit` / `--weekly-max-videos` / `--weekly-max-minutes`
+  khi `accounts add`. Mock build (`--mock`) không tính vào giới hạn.
+  Xem mức dùng bằng `accounts usage`; Web Studio hiện cột **Tuần này** ở tab
+  Tài khoản Muse.
 
 ## 2. Lồng tiếng ElevenLabs
 

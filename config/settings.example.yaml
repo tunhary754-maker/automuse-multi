@@ -3,9 +3,25 @@
 
 muse:
   base_url: "https://muse.ai"
+  # Transport gọi Muse: "rest" (REST cũ, đã biết sai) hoặc "gateway"
+  # (Noise WebSocket thật — xem docs/gateway-protocol.md). Mặc định "rest"
+  # cho tới khi gateway được kiểm chứng xong.
+  transport: "rest"
   # API web của Muse không công khai — nếu Muse đổi API, sửa các path dưới
   # đây cho khớp với request thật quan sát được ở DevTools (muse.ai -> Network).
-  login_check_path: "/api/auth/session"
+  # Login check: GET thẳng trang chủ (phụ: /api/me), không dùng /api/auth/session
+  # vì endpoint đó trả 401 ngay cả với cookie còn sống.
+  # Quota/token: API không công khai — check_quota() thử các path ứng viên
+  # dưới đây, đọc được thì báo số dư, không thì báo không rõ.
+  quota_check_paths:
+    - "/api/user/usage"
+    - "/api/usage"
+    - "/api/credits"
+    - "/api/user/credits"
+    - "/api/quota"
+    - "/api/user/quota"
+    - "/api/balance"
+    - "/api/subscription"
   generate_video_path: "/api/media/generate/video"
   generate_image_path: "/api/media/generate/image"
   job_status_path: "/api/media/jobs/{job_id}"
@@ -19,6 +35,13 @@ generation:
   default_fps: 30
   delay_between_jobs: 2
   max_retries_per_scene: 3
+
+# Giới hạn tuần (tuần lịch, thứ Hai 00:00 -> thứ Hai tuần sau).
+# 0 = không giới hạn. Mỗi acc có thể ghi đè riêng bằng:
+#   python cli.py accounts set-limit --name acc1 --videos 30 --minutes 180
+limits:
+  weekly_max_videos: 20
+  weekly_max_minutes: 120
 
 elevenlabs:
   model: "eleven_multilingual_v2"   # đọc tốt tiếng Việt

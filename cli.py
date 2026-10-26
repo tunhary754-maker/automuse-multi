@@ -33,6 +33,7 @@ from automuse.elevenlabs import build_elevenlabs  # noqa: E402
 from automuse.muse_client import build_client  # noqa: E402
 from automuse.pipeline import generate_clips, log, run_build  # noqa: E402
 from automuse.script import load_script, validate  # noqa: E402
+from automuse.usage import UsageTracker  # noqa: E402
 
 
 def _manager() -> AccountManager:
@@ -67,6 +68,8 @@ def cmd_accounts_add(args) -> int:
         cookie_file=args.cookie_file or "",
         proxy=args.proxy or "",
         note=args.note or "",
+        weekly_max_videos=int(args.weekly_max_videos or 0),
+        weekly_max_minutes=int(args.weekly_max_minutes or 0),
     )
     try:
         mgr.add(acc)
@@ -107,6 +110,7 @@ def cmd_accounts_check(args) -> int:
         print("Không có tài khoản nào để kiểm tra.")
         return 1
     settings = load_settings()
+    tracker = UsageTracker()
     ok_all = True
     for acc in targets:
         print(f"\n== {acc.name} ==")
@@ -121,7 +125,58 @@ def cmd_accounts_check(args) -> int:
         print(f"  Muse login: {'OK' if ok else 'LỖI'} — {msg}")
         if not ok:
             ok_all = False
+        qok, qmsg = client.check_quota()
+        qlabel = "OK" if qok is True else ("LỖI" if qok is False else "KHÔNG RÕ")
+        print(f"  Token/quota: {qlabel} — {qmsg}")
+        if qok is False:
+            ok_all = False
+        u = tracker.remaining(acc, settings)
+        v = f"{u['videos']}/{u['max_videos'] if u['max_videos'] else '∞'} video"
+        m = f"{u['minutes']}/{u['max_minutes'] if u['max_minutes'] else '∞'} phút"
+        print(f"  Tuần này ({u['week']}): {v}, {m}")
     return 0 if ok_all else 1
+
+
+def _usage_line(u: dict) -> str:
+    v = f"{u['videos']}/{u['max_videos'] if u['max_videos'] else '∞'}"
+    m = f"{u['minutes']}/{u['max_minutes'] if u['max_minutes'] else '∞'}"
+    vl = "∞" if u["videos_left"] is None else str(u["videos_left"])
+    ml = "∞" if u["minutes_left"] is None else str(u["minutes_left"])
+    return f"{v:<12} {m:<14} {vl:<10} {ml}"
+
+
+def cmd_accounts_usage(args) -> int:
+    mgr = _manager()
+    targets = [mgr.get(args.name)] if args.name else mgr.accounts
+    targets = [a for a in targets if a]
+    if not targets:
+        print("Không có tài khoản nào.")
+        return 1
+    settings = load_settings()
+    tracker = UsageTracker()
+    rows = tracker.summary(targets, settings)
+    print(f"Tuần: {rows[0]['week']} (thứ Hai 00:00 -> thứ Hai tuần sau)")
+    print(f"{'Tên':<16} {'Video':<12} {'Phút':<14} {'Còn video':<10} {'Còn phút'}")
+    for u in rows:
+        print(f"{u['account']:<16} {_usage_line(u)}")
+    return 0
+
+
+def cmd_accounts_set_limit(args) -> int:
+    mgr = _manager()
+    acc = mgr.get(args.name)
+    if not acc:
+        print(f"Không có tài khoản '{args.name}'")
+        return 1
+    if args.videos is not None:
+        acc.weekly_max_videos = int(args.videos)
+    if args.minutes is not None:
+        acc.weekly_max_minutes = int(args.minutes)
+    mgr.save()
+    max_v, max_m = UsageTracker().limits_for(acc, load_settings())
+    print(f"'{args.name}': giới hạn tuần = {max_v or '∞'} video, {max_m or '∞'} phút "
+          "(0 = dùng giới hạn chung trong settings.yaml)")
+    return 0
 
 
 # ---------------------------------------------------------------- voices
@@ -287,15 +342,27 @@ def build_parser() -> argparse.ArgumentParser:
     a_add.add_argument("--cookie-file", default="", help="File cookies.txt/.json")
     a_add.add_argument("--proxy", default="", help="vd: http://user:pass@host:port")
     a_add.add_argument("--note", default="")
+    a_add.add_argument("--weekly-max-videos", type=int, default=0,
+                       help="Giới hạn clip/tuần riêng cho acc này (0 = dùng chung)")
+    a_add.add_argument("--weekly-max-minutes", type=int, default=0,
+                       help="Giới hạn phút clip/tuần riêng cho acc này (0 = dùng chung)")
     a_add.set_defaults(func=cmd_accounts_add)
     a_list = acc_sub.add_parser("list", help="Liệt kê tài khoản")
     a_list.set_defaults(func=cmd_accounts_list)
     a_rm = acc_sub.add_parser("remove", help="Xóa tài khoản")
     a_rm.add_argument("--name", required=True)
     a_rm.set_defaults(func=cmd_accounts_remove)
-    a_check = acc_sub.add_parser("check", help="Kiểm tra proxy + cookie còn sống không")
+    a_check = acc_sub.add_parser("check", help="Kiểm tra proxy + cookie + token/quota + mức dùng tuần")
     a_check.add_argument("--name", default="")
     a_check.set_defaults(func=cmd_accounts_check)
+    a_usage = acc_sub.add_parser("usage", help="Xem mức dùng tuần này so với giới hạn")
+    a_usage.add_argument("--name", default="")
+    a_usage.set_defaults(func=cmd_accounts_usage)
+    a_limit = acc_sub.add_parser("set-limit", help="Đặt giới hạn tuần riêng cho một acc")
+    a_limit.add_argument("--name", required=True)
+    a_limit.add_argument("--videos", type=int, default=None)
+    a_limit.add_argument("--minutes", type=int, default=None)
+    a_limit.set_defaults(func=cmd_accounts_set_limit)
 
     v = sub.add_parser("voices", help="Liệt kê giọng ElevenLabs")
     v.add_argument("--mock", action="store_true")

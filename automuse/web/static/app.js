@@ -68,13 +68,14 @@ async function loadAccounts() {
       <td><b>${esc(a.name)}</b><br><span class="meta">${esc(a.note || "")}</span></td>
       <td>${esc(a.proxy || "-")}</td>
       <td>${a.jobs_done} ✓ / ${a.jobs_failed} ✗</td>
+      <td>${a.usage ? `${a.usage.videos}/${a.usage.max_videos || "∞"} video · ${a.usage.minutes}/${a.usage.max_minutes || "∞"} phút<br><span class="meta">tuần ${esc(a.usage.week)}</span>` : "-"}</td>
       <td>${!a.enabled ? "tắt" : '<span class="badge ok">sẵn sàng</span>'}
           <span class="check-result" id="check-${esc(a.name)}"></span></td>
       <td>
         <button class="btn small" onclick="checkAccount('${esc(a.name)}')">Kiểm tra</button>
         <button class="btn small danger" onclick="deleteAccount('${esc(a.name)}')">Xóa</button>
       </td>
-    </tr>`).join("") || `<tr><td colspan="5">Chưa có tài khoản nào.</td></tr>`;
+    </tr>`).join("") || `<tr><td colspan="6">Chưa có tài khoản nào.</td></tr>`;
   const sel = $("#build-accounts-select");
   sel.innerHTML = list.filter((a) => a.enabled)
     .map((a) => `<option value="${esc(a.name)}">${esc(a.name)}</option>`).join("");
@@ -87,6 +88,8 @@ async function checkAccount(name) {
     const parts = [];
     if (r.proxy) parts.push(`proxy ${r.proxy.ok ? "✓" : "✗"} (${esc(r.proxy.message)})`);
     parts.push(`login ${r.login.ok ? "✓" : "✗"} (${esc(r.login.message)})`);
+    if (r.quota) parts.push(`token ${r.quota.ok === true ? "✓" : r.quota.ok === false ? "✗" : "?"} (${esc(r.quota.message)})`);
+    if (r.usage) parts.push(`tuần này: ${r.usage.videos}/${r.usage.max_videos || "∞"} video · ${r.usage.minutes}/${r.usage.max_minutes || "∞"} phút`);
     el.innerHTML = parts.join("<br>");
   } catch (e) {
     el.textContent = " lỗi: " + e.message;

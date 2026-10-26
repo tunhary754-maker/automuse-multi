@@ -37,7 +37,15 @@ def parse_cookie_header(raw: str) -> dict[str, str]:
         if not part or "=" not in part:
             continue
         name, value = part.split("=", 1)
-        out[name.strip()] = value.strip()
+        name, value = name.strip(), value.strip()
+        # Chuỗi cookie export từ trình duyệt đôi khi có khóa trùng nhau,
+        # trong đó một bản rỗng (vd: hatch_gw=...; ...; hatch_gw=).
+        # Giữ bản đầu tiên khác rỗng, đừng để bản rỗng sau ghi đè mất.
+        if name in out:
+            if not out[name] and value:
+                out[name] = value
+            continue
+        out[name] = value
     return out
 
 
@@ -72,8 +80,19 @@ def parse_cookie_json(data) -> dict[str, str]:
 
 def load_cookies(source: str) -> dict[str, str]:
     """Tự nhận diện: đường dẫn file (.txt/.json) hoặc chuỗi cookie thô."""
+    # Chuỗi cookie thô rất dài và chứa ';' — đừng để Path().exists()
+    # crash (OSError: File name too long) mà phải rơi xuống parse header.
+    if ";" in source or "=" in source:
+        stripped = source.strip()
+        if stripped.startswith(("{", "[")):
+            return parse_cookie_json(json.loads(source))
+        return parse_cookie_header(source)
     p = Path(source)
-    if p.exists():
+    try:
+        exists = p.exists()
+    except OSError:
+        exists = False
+    if exists:
         if p.suffix.lower() == ".json":
             return parse_cookie_json(json.loads(p.read_text(encoding="utf-8")))
         return parse_netscape_file(p)
@@ -156,6 +175,8 @@ class Account:
     proxy: str = ""           # vd: http://user:pass@host:port
     enabled: bool = True
     note: str = ""
+    weekly_max_videos: int = 0   # giới hạn tuần riêng của acc (0 = dùng chung)
+    weekly_max_minutes: int = 0  # tổng phút clip tối đa mỗi tuần (0 = dùng chung)
     jobs_done: int = 0
     jobs_failed: int = 0
     last_used: float = 0.0

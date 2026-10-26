@@ -47,6 +47,7 @@ from ..config import (
 from ..elevenlabs import build_elevenlabs
 from ..muse_client import build_client
 from ..script import load_script, validate
+from ..usage import UsageTracker
 from . import jobs as job_store
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -253,7 +254,14 @@ class StudioHandler(BaseHTTPRequestHandler):
 
         if path == "/api/accounts":
             mgr = AccountManager()
-            return _json(self, [a.to_public_dict() for a in mgr.accounts])
+            settings = load_settings()
+            tracker = UsageTracker()
+            out = []
+            for a in mgr.accounts:
+                d = a.to_public_dict()
+                d["usage"] = tracker.remaining(a, settings)
+                out.append(d)
+            return _json(self, out)
 
         if path == "/api/voices":
             mock = qs.get("mock", ["0"])[0] == "1" or not elevenlabs_api_key()
@@ -337,6 +345,9 @@ class StudioHandler(BaseHTTPRequestHandler):
             client = build_client(acc, load_settings(), mock=False)
             ok, msg = client.check_login()
             result["login"] = {"ok": ok, "message": msg}
+            qok, qmsg = client.check_quota()
+            result["quota"] = {"ok": qok, "message": qmsg}
+            result["usage"] = UsageTracker().remaining(acc, load_settings())
             return _json(self, result)
 
         if path == "/api/scripts":

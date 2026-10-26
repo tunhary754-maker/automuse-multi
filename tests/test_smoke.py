@@ -20,6 +20,19 @@ class TestCookies(unittest.TestCase):
         cookies = parse_cookie_header("sessionid=abc; csrftoken=xyz; a=b=c")
         self.assertEqual(cookies, {"sessionid": "abc", "csrftoken": "xyz", "a": "b=c"})
 
+    def test_header_duplicate_keeps_nonempty(self):
+        cookies = parse_cookie_header("hatch_gw=abc123; dpr=1; hatch_gw=")
+        self.assertEqual(cookies["hatch_gw"], "abc123")
+        cookies = parse_cookie_header("hatch_gw=; dpr=1; hatch_gw=abc123")
+        self.assertEqual(cookies["hatch_gw"], "abc123")
+
+    def test_long_header_not_treated_as_path(self):
+        from automuse.accounts import load_cookies
+        long_cookie = "hatch_sess=" + "x" * 5000 + "; dpr=1; hatch_gw="
+        cookies = load_cookies(long_cookie)
+        self.assertEqual(cookies["hatch_sess"], "x" * 5000)
+        self.assertEqual(cookies["dpr"], "1")
+
     def test_header_with_prefix(self):
         cookies = parse_cookie_header("Cookie: sessionid=abc")
         self.assertEqual(cookies, {"sessionid": "abc"})

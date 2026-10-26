@@ -20,10 +20,24 @@ DEFAULT_SETTINGS = {
         # nên các path dưới đây có thể chỉnh lại cho khớp với API thật mà bạn
         # quan sát được (DevTools -> Network) khi dùng muse.ai / automuse.site.
         "base_url": "https://muse.ai",
-        "login_check_path": "/api/auth/session",
+        # Login check không dùng /api/auth/session nữa: endpoint đó trả 401
+        # ngay cả với cookie còn sống. check_login() GET thẳng trang chủ
+        # (phụ: /api/me) và coi 200 + ở đúng host + trang app đầy đủ là OK.
+        # Quota/token: API không công khai — check_quota() thử các path
+        # ứng viên dưới đây, đọc được thì báo số dư, không thì báo không rõ
+        # (giới hạn tuần cục bộ vẫn chạy bình thường).
+        "quota_check_paths": [
+            "/api/user/usage", "/api/usage", "/api/credits",
+            "/api/user/credits", "/api/quota", "/api/user/quota",
+            "/api/balance", "/api/subscription",
+        ],
         "generate_video_path": "/api/media/generate/video",
         "generate_image_path": "/api/media/generate/image",
         "job_status_path": "/api/media/jobs/{job_id}",
+        # Transport gọi Muse: "rest" (REST đoán mò, đã biết sai: 403) hoặc
+        # "gateway" (Noise WebSocket thật, xem docs/gateway-protocol.md).
+        # Mặc định "rest" cho tới khi gateway được kiểm chứng xong.
+        "transport": "rest",
         "timeout": 120,
         "poll_interval": 5,
         "poll_timeout": 900,
@@ -34,6 +48,14 @@ DEFAULT_SETTINGS = {
         "default_fps": 30,
         "delay_between_jobs": 2,
         "max_retries_per_scene": 3,
+    },
+    "limits": {
+        # Giới hạn tuần (tính theo tuần lịch, thứ Hai 00:00 -> thứ Hai sau).
+        # 0 = không giới hạn. Đổi số trong config/settings.yaml cho khớp
+        # với gói Muse của bạn; mỗi acc có thể ghi đè riêng bằng
+        # `accounts set-limit --name <tên> --videos N --minutes M`.
+        "weekly_max_videos": 20,
+        "weekly_max_minutes": 120,
     },
     "elevenlabs": {
         "model": "eleven_multilingual_v2",
