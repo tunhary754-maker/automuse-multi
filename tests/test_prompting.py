@@ -172,6 +172,16 @@ class TestTemplateFallback(unittest.TestCase):
         self.assertIn("slapstick", prompts[0].prompt.lower())
         self.assertIn("no dialogue", prompts[0].prompt.lower())
 
+    def test_asmr_style_is_cute_soft_no_dialogue(self):
+        # ASMR kiểu hayang: mèo dễ thương, tiếng động mềm, không thoại.
+        prompts = prompts_from_text("Mèo chải lông cho khách trong tiệm spa.",
+                                    kind="asmr", aspect="16:9")
+        self.assertEqual(len(prompts), 1)
+        self.assertIn("asmr", prompts[0].prompt.lower())
+        self.assertIn("no dialogue", prompts[0].prompt.lower())
+        self.assertNotIn("slapstick", prompts[0].prompt.lower())
+        self.assertNotIn("lip movement", prompts[0].prompt.lower())
+
     def test_empty_text_returns_empty(self):
         self.assertEqual(prompts_from_text(""), [])
         self.assertEqual(prompts_from_text("  \n "), [])

@@ -3,10 +3,9 @@
 # mỗi cảnh 1 cơ chế sinh tồn + 1 loài + 1 con số; mở đầu tương phản +
 # số liệu, kết bằng câu luận điểm đảo ngược trực giác:
 # cái lạnh không phải kẻ thù, mà là nhà.
-# Lời dẫn: Bá Lục, tốc độ 0.9 (chậm, rõ) — theo skill.
-# Lời dẫn giữ ≤ ~20 từ/cảnh để vừa khung 10s ở tốc độ 0.9
-# (bài học tập 1: s01 23 từ / s10 25 từ sẽ bị dub script tự tăng tốc).
-# Chạy khi quota tuần mới mở (thứ Hai 02/11/2026, acc1 được 20 video mới):
+# Lời dẫn: Bá Lục, tốc độ 1.0 — theo skill (tập 1 chốt ở 1.0 sau khi nghe thử).
+# Lời dẫn giữ ≤ ~20 từ/cảnh để vừa khung 10s; tập 1 đo thực tế s01 23 từ / s10 25 từ vẫn vừa (~7s), không bị tăng tốc.
+# Chạy được ngay trong tuần này — giới hạn acc1 đã nâng lên 40 video/tuần, kiểm tra `accounts usage` trước khi build (tập này cần 10 video):
 #   python cli.py build --script scripts/the-gioi-dong-vat-gau-bac-cuc.prompts.yaml
 # Thử pipeline không tốn quota: thêm --mock
 title: "Thế giới động vật — Kẻ sống sót trên băng (100s)"

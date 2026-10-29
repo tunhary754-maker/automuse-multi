@@ -543,8 +543,8 @@ def cmd_prompts(args) -> int:
     else:
         kind = args.kind or "documentary"
         aspect = args.aspect or "16:9"
-    if kind not in ("movie", "documentary", "animation"):
-        print(f"Thể loại '{kind}' không hợp lệ (movie/documentary/animation).")
+    if kind not in ("movie", "documentary", "animation", "asmr"):
+        print(f"Thể loại '{kind}' không hợp lệ (movie/documentary/animation/asmr).")
         return 1
 
     if script is not None:
@@ -873,7 +873,7 @@ def build_parser() -> argparse.ArgumentParser:
     pr.add_argument("--script", default="", help="File kịch bản YAML/Markdown (ưu tiên hơn --text)")
     pr.add_argument("--text", default="", help="Kịch bản paste trực tiếp")
     pr.add_argument("--account", default="", help="Acc Muse để nhờ viết prompt (không có = dùng mẫu có sẵn)")
-    pr.add_argument("--kind", default=None, choices=["movie", "documentary", "animation"], help="Thể loại (mặc định: theo script, hoặc documentary)")
+    pr.add_argument("--kind", default=None, choices=["movie", "documentary", "animation", "asmr"], help="Thể loại (mặc định: theo script, hoặc documentary)")
     pr.add_argument("--aspect", default="", help="vd: 16:9, 9:16 (mặc định: theo script, hoặc 16:9)")
     pr.add_argument("--apply", action="store_true", help="Ghi prompt vào visual, lưu file <tên>.prompts.yaml (chỉ với --script)")
     pr.add_argument("--out", default="", help="Lưu prompts ra file text")
@@ -886,7 +886,7 @@ def build_parser() -> argparse.ArgumentParser:
     ch_show.set_defaults(func=cmd_characters_show)
 
     i = sub.add_parser("init", help="Tạo kịch bản mẫu (movie/documentary/animation)")
-    i.add_argument("--kind", choices=["movie", "documentary", "animation"], default="documentary")
+    i.add_argument("--kind", choices=["movie", "documentary", "animation", "asmr"], default="documentary")
     i.add_argument("--out", required=True)
     i.add_argument("--force", action="store_true")
     i.set_defaults(func=cmd_init)

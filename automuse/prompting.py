@@ -46,15 +46,18 @@ PROMPT_WRITER_INSTRUCTION = (
     "No markdown fences, no extra commentary."
 )
 
-# Biến thể cho phim truyện: có thoại (không dặn "silent" / "No dialogue").
-PROMPT_WRITER_INSTRUCTION_MOVIE = (
-    "You write video-generation prompts for an AI video generator. "
+# Biến thể cho ASMR (kiểu hayang): hoạt hình mèo dễ thương, không thoại,
+# tiếng động nhẹ nhàng là nhân vật chính — dặn rõ từng âm thanh mềm.
+PROMPT_WRITER_INSTRUCTION_ASMR = (
+    "You write video-generation prompts for a cute ASMR animation generator. "
     "I will paste a script in Vietnamese, split into numbered beats. "
     "For each beat, write ONE video prompt in English: 1-3 sentences, "
     "concrete visible action, consistent character names, camera and motion, "
     "matching the style ({style}) and aspect ratio ({aspect}). "
-    "No narration text, no on-screen text in the prompt. "
-    "Characters speak naturally, with visible lip movement when talking. "
+    "Focus on one soft satisfying sound per beat (gentle brushing, pouring "
+    "water, soft tapping, slow massage) and describe it clearly, because "
+    "the sound is the star of the video. "
+    "No dialogue, no narration text, no on-screen text in the prompt. "
     "Reply with ONLY a JSON array, one object per beat in order, like: "
     '[{"title": "Scene title", "prompt": "The English video prompt..."}]. '
     "No markdown fences, no extra commentary."
@@ -64,15 +67,19 @@ _STYLE_BY_KIND = {
     "documentary": "wildlife documentary cinematography, BBC Earth style",
     "movie": "cinematic live-action drama, film still, naturalistic lighting, realistic",
     "animation": "Larva-style silent slapstick animation, exaggerated cartoon physics",
+    "asmr": "cute soft 3D animation, ASMR vibes, pastel colors, cozy and relaxing, gentle slow movements, satisfying repetitive actions",
 }
 
 # Hậu tố âm thanh: hoạt hình câm + tài liệu (lời dẫn thêm ở hậu kỳ) thì
 # clip gốc câm; phim truyện có thoại nên dặn nhân vật nói + cử động môi
-# (cần cho bước lip-sync hậu kỳ).
+# (cần cho bước lip-sync hậu kỳ). ASMR cũng câm, nhưng tiếng động mềm
+# (chải, rót nước, gõ nhẹ) là nhân vật chính — dặn rõ để model sinh
+# tiếng gốc khớp từng hành động, vì tiếng gốc sẽ làm nền (không đắp nhạc).
 _SUFFIX_BY_KIND = {
     "documentary": "silent, no dialogue.",
     "movie": "natural dialogue, visible lip movement when a character speaks.",
     "animation": "silent, no dialogue.",
+    "asmr": "silent, no dialogue, soft satisfying ASMR sounds only.",
 }
 
 _CAMERA_BY_KIND = {
@@ -96,6 +103,14 @@ _CAMERA_BY_KIND = {
         "Low angle shot",
         "Tracking shot",
         "Overhead shot",
+    ],
+    # ASMR: cận cảnh là chính — hành động gây tiếng nằm ở chi tiết nhỏ.
+    "asmr": [
+        "Extreme close-up",
+        "Macro close-up",
+        "Slow close-up",
+        "Overhead close-up",
+        "Soft focus close-up",
     ],
 }
 
@@ -596,8 +611,12 @@ def prompts_from_text(raw_text: str, client=None, kind: str = "documentary",
             f"Beat {i + 1}: {b.text}" for i, b in enumerate(beats)
         )
         # .format() không dùng được: instruction chứa ngoặc {} của JSON mẫu.
-        base_instruction = (PROMPT_WRITER_INSTRUCTION_MOVIE if kind == "movie"
-                            else PROMPT_WRITER_INSTRUCTION)
+        if kind == "movie":
+            base_instruction = PROMPT_WRITER_INSTRUCTION_MOVIE
+        elif kind == "asmr":
+            base_instruction = PROMPT_WRITER_INSTRUCTION_ASMR
+        else:
+            base_instruction = PROMPT_WRITER_INSTRUCTION
         instruction = base_instruction.replace(
             "{style}", style).replace("{aspect}", aspect)
         user_text = f"{instruction}\n\nScript:\n{numbered}"

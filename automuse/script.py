@@ -52,7 +52,7 @@ class Scene:
 @dataclass
 class Script:
     title: str = "Untitled"
-    kind: str = "movie"  # movie | documentary | animation
+    kind: str = "movie"  # movie | documentary | animation | asmr
     aspect: str = "16:9"
     fps: int = 30
     default_voice: str = "narrator"

@@ -1,0 +1,4 @@
+name: asmr-animation
+description: Make a cute cat ASMR animation episode in hayang style with automuse-multi — one gentle service, one soft sound per scene, no narration, native clip audio as the background.
+version: "1.0"
+include_in_prompt: true

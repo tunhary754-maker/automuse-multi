@@ -1,0 +1,67 @@
+# Kịch bản mẫu: ASMR HOẠT HÌNH MÈO DỄ THƯƠNG (phong cách hayang, 60s / 6 cảnh)
+# Không thoại, không lời dẫn — chỉ hành động nhẹ nhàng + tiếng động mềm.
+# Tiếng gốc của clip LÀ nhân vật chính: mỗi cảnh một âm thanh gây nghiện
+# (chải lông, rót nước, gõ nhẹ, xoa bóp...). Build xong phải ghép tiếng gốc
+# của từng clip làm nền (pipeline ráp tập mặc định bỏ tiếng gốc) — KHÔNG
+# đắp nhạc nền hay ambience từ ngoài, nghe giả.
+# Nhân vật đồng nhất: bảng characters khóa mô tả cố định (tiếng Anh) vào
+# mọi cảnh có nhân vật đó. Ảnh tham chiếu (image) đặt file vào
+# assets/characters/ rồi thêm reference_image vào cảnh — gateway đính kèm
+# ảnh inline base64 khi sinh clip (file phải tồn tại).
+# Chạy thử: python cli.py build --script scripts/asmr-meo-spa.yaml --mock --no-tts
+# Chạy thật: python cli.py build --script scripts/asmr-meo-spa.yaml --no-tts
+#   (ASMR không lồng tiếng — tiếng gốc của clip là đủ.)
+title: "Tiệm spa của mèo Mimi (60s)"
+kind: asmr
+aspect: "16:9"
+fps: 30
+default_voice: narrator
+characters:
+  Mimi:
+    description: "cute fluffy white cat, pink inner ears, big round amber eyes, wearing a small pastel pink spa apron"
+  Khách Mèo:
+    description: "sleepy chubby orange tabby cat, closed content eyes, fluffy tail curled around paws"
+music: ""
+
+scenes:
+  - id: s01
+    title: "Chải lông"
+    duration: 10
+    visual: "A cute fluffy white cat gently brushes a sleepy orange tabby cat's fur with a soft wooden brush, slow rhythmic strokes, cozy pastel spa, soft morning light"
+    sfx: "soft rhythmic brushing, gentle bristle sounds"
+    character: Mimi
+
+  - id: s02
+    title: "Rót nước ấm"
+    duration: 10
+    visual: "A cute fluffy white cat slowly pours warm water from a small ceramic jug into a pastel basin, thin stream of water, tiny steam rising, cozy spa"
+    sfx: "soft pouring water, gentle trickling, faint steam hiss"
+    character: Mimi
+
+  - id: s03
+    title: "Xoa bóp nhẹ"
+    duration: 10
+    visual: "A cute fluffy white cat massages a sleepy orange tabby cat's shoulders with soft paws, slow circular kneading motions, the tabby's eyes closed in bliss, cozy pastel spa"
+    sfx: "soft kneading, gentle paw pads pressing, slow rhythmic rubbing"
+    character: Mimi
+
+  - id: s04
+    title: "Đắp mặt nạ"
+    duration: 10
+    visual: "A cute fluffy white cat applies a creamy face mask to a sleepy orange tabby cat with a small soft brush, gentle smooth strokes across the forehead, cozy pastel spa"
+    sfx: "soft brush strokes, creamy smearing, gentle swishing"
+    character: Mimi
+
+  - id: s05
+    title: "Lau khô bằng khăn"
+    duration: 10
+    visual: "A cute fluffy white cat dries a sleepy orange tabby cat with a big fluffy white towel, slow soft patting motions, the tabby purring contentedly, cozy pastel spa"
+    sfx: "soft towel patting, fluffy fabric rustling, faint purring"
+    character: Mimi
+
+  - id: s06
+    title: "Thư giãn cuối buổi"
+    duration: 10
+    visual: "A sleepy orange tabby cat rests peacefully on a soft cushion with eyes closed and a tiny smile, a cute fluffy white cat places a small pink flower beside it, warm golden light, cozy pastel spa"
+    sfx: "soft sigh, faint purring, quiet room tone"
+    character: Khách Mèo
