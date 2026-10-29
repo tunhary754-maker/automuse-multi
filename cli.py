@@ -14,6 +14,9 @@ Ví dụ:
   python cli.py init --kind documentary --out scripts/dong-vat.yaml
   python cli.py prompts --script scripts/dong-vat.yaml
   python cli.py prompts --script scripts/dong-vat.yaml --account acc1 --apply
+  python cli.py topics --kind documentary
+  python cli.py topics --kind documentary --keyword "gấu" --account acc1
+  python cli.py write-script --topic "Gấu Bắc Cực" --kind documentary --scenes 10 --account acc1
   python cli.py characters show --script scripts/phim.yaml
   cat kich-ban.txt | python cli.py prompts --kind documentary
   python cli.py build --script examples/the-gioi-dong-vat.yaml --mock
@@ -636,6 +639,135 @@ def cmd_prompts(args) -> int:
     return 0
 
 
+# ---------------------------------------------------------------- topics
+
+
+def _muse_gateway_client(account_name: str):
+    """Build a gateway client for an account, or return (None, error).
+
+    Mirrors the account handling in cmd_prompts: the account must exist and
+    transport must be gateway (the Muse text path goes through the account's
+    main chat session, like video generation).
+    """
+    mgr = AccountManager()
+    acc = mgr.get(account_name)
+    if not acc:
+        return None, f"Không có tài khoản '{account_name}'."
+    settings = load_settings()
+    client = build_client(acc, settings, mock=False)
+    from automuse.gateway import GatewayClient
+
+    if not isinstance(client, GatewayClient):
+        return None, ("Cần transport gateway để nhờ Muse "
+                       "(settings.yaml: muse.transport: gateway).")
+    return client, ""
+
+
+def cmd_topics(args) -> int:
+    """Gợi ý chủ đề video theo hướng.
+
+    Có --account thì nhờ Muse gợi ý qua gateway (tin nhắn sẽ hiện trong
+    chat chính của acc đó, như lúc tạo video); không có thì dùng danh
+    sách mẫu theo từng hướng.
+    """
+    from automuse.topics import suggest_topics
+
+    kind = args.kind
+    if kind not in ("movie", "documentary", "animation", "asmr"):
+        print(f"Thể loại '{kind}' không hợp lệ (movie/documentary/animation/asmr).")
+        return 1
+    client = None
+    if args.account:
+        client, err = _muse_gateway_client(args.account)
+        if client is None:
+            print(err)
+            return 1
+    ideas = suggest_topics(kind, keyword=args.keyword, count=args.count,
+                           client=client)
+    if not ideas:
+        print("Không gợi ý được chủ đề nào.")
+        return 1
+    print(f"Chủ đề {kind} ({len(ideas)} gợi ý):")
+    for i, idea in enumerate(ideas, 1):
+        print(f"{i}. {idea.title}")
+        if idea.summary:
+            print(f"   {idea.summary}")
+    return 0
+
+
+def _slugify_topic(topic: str) -> str:
+    """Turn a (possibly Vietnamese) topic into a safe filename stem."""
+    import re
+    import unicodedata
+
+    norm = unicodedata.normalize("NFD", topic)
+    ascii_text = "".join(c for c in norm if unicodedata.category(c) != "Mn")
+    slug = re.sub(r"[^a-z0-9]+", "-", ascii_text.lower()).strip("-")
+    return slug or "kich-ban"
+
+
+def cmd_write_script(args) -> int:
+    """Nhờ Muse viết kịch bản hoàn chỉnh từ chủ đề, lưu file YAML.
+
+    Có --account thì nhờ Muse viết qua gateway (tin nhắn sẽ hiện trong
+    chat chính của acc đó, như lúc tạo video); không có thì lưu khung
+    mẫu để tự điền. File đích dùng tiếp được cho `prompts` rồi `build`.
+    """
+    from automuse.topics import write_script
+
+    kind = args.kind
+    if kind not in ("movie", "documentary", "animation", "asmr"):
+        print(f"Thể loại '{kind}' không hợp lệ (movie/documentary/animation/asmr).")
+        return 1
+    client = None
+    if args.account:
+        client, err = _muse_gateway_client(args.account)
+        if client is None:
+            print(err)
+            return 1
+    try:
+        script = write_script(args.topic, kind=kind, scene_count=args.scenes,
+                              scene_duration=args.duration, client=client)
+    except ValueError as e:
+        print(f"Không viết được kịch bản: {e}")
+        return 1
+    import yaml
+
+    data = {
+        "title": script.title,
+        "kind": script.kind,
+        "aspect": script.aspect,
+        **({"characters": script.characters} if script.characters else {}),
+        **({"voices": script.voices} if script.voices else {}),
+        "default_voice": script.default_voice,
+        "fps": script.fps,
+        **({"music": script.music} if script.music else {}),
+        "scenes": [
+            {
+                "id": s.id,
+                "title": s.title,
+                "duration": s.duration,
+                "visual": s.visual,
+                "narration": s.narration,
+                **({"voice": s.voice} if s.voice else {}),
+                **({"character": s.character} if s.character else {}),
+                **({"reference_image": s.reference_image} if s.reference_image else {}),
+                **({"sfx": s.sfx} if s.sfx else {}),
+                **({"lipsync": True} if s.lipsync else {}),
+            }
+            for s in script.scenes
+        ],
+    }
+    out = args.out or f"scripts/{_slugify_topic(args.topic)}.yaml"
+    dest = Path(out)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text(yaml.dump(data, allow_unicode=True, sort_keys=False),
+                    encoding="utf-8")
+    print(f"Đã lưu kịch bản: {dest} ({len(script.scenes)} cảnh) — tiếp theo: "
+          f"`prompts --script {dest}` rồi `build --script {dest}`.")
+    return 0
+
+
 # ---------------------------------------------------------------- characters
 
 def cmd_characters_show(args) -> int:
@@ -878,6 +1010,22 @@ def build_parser() -> argparse.ArgumentParser:
     pr.add_argument("--apply", action="store_true", help="Ghi prompt vào visual, lưu file <tên>.prompts.yaml (chỉ với --script)")
     pr.add_argument("--out", default="", help="Lưu prompts ra file text")
     pr.set_defaults(func=cmd_prompts)
+
+    t = sub.add_parser("topics", help="Gợi ý chủ đề video theo hướng (Muse hoặc danh sách mẫu)")
+    t.add_argument("--kind", choices=["movie", "documentary", "animation", "asmr"], default="documentary")
+    t.add_argument("--keyword", default="", help="Từ khóa lọc/gợi ý (vd: gấu Bắc Cực)")
+    t.add_argument("--count", type=int, default=10, help="Số chủ đề (mặc định 10)")
+    t.add_argument("--account", default="", help="Acc Muse để nhờ gợi ý (không có = dùng danh sách mẫu)")
+    t.set_defaults(func=cmd_topics)
+
+    w = sub.add_parser("write-script", help="Nhờ Muse viết kịch bản hoàn chỉnh từ chủ đề")
+    w.add_argument("--topic", required=True, help="Chủ đề (vd: Gấu Bắc Cực)")
+    w.add_argument("--kind", choices=["movie", "documentary", "animation", "asmr"], default="documentary")
+    w.add_argument("--scenes", type=int, default=10, help="Số cảnh (mặc định 10)")
+    w.add_argument("--duration", type=int, default=10, help="Thời lượng mỗi cảnh, giây (mặc định 10)")
+    w.add_argument("--account", default="", help="Acc Muse để nhờ viết kịch bản (không có = khung mẫu)")
+    w.add_argument("--out", default="", help="File đích (mặc định: scripts/<slug-chu-de>.yaml)")
+    w.set_defaults(func=cmd_write_script)
 
     ch = sub.add_parser("characters", help="Nhân vật trong kịch bản (bảng characters)")
     ch_sub = ch.add_subparsers(dest="characters_action", required=True)

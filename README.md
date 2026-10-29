@@ -200,6 +200,30 @@ Trong kịch bản, chỉ đánh dấu cảnh thoại cận mặt (phim truyện
 - Chưa có key mà build với `--lipsync` (không phải mock) thì dừng ngay
   với hướng dẫn chạy `lipsync set-key`.
 
+## 2d. Tìm chủ đề + tự tạo kịch bản
+
+Chưa có ý tưởng thì gợi ý chủ đề theo hướng, rồi nhờ Muse viết kịch bản
+hoàn chỉnh từ chủ đề — xong chạy tiếp `prompts` rồi `build` như bình thường:
+
+```bash
+# Gợi ý 10 chủ đề phim tài liệu (thêm --keyword để lọc/gợi ý theo từ khóa)
+python cli.py topics --kind documentary
+python cli.py topics --kind documentary --keyword "gấu" --count 5
+
+# Nhờ Muse viết kịch bản 10 cảnh từ chủ đề (tin nhắn sẽ hiện trong chat
+# chính của acc đó, như lúc tạo video); không có --account thì lưu khung
+# mẫu để tự điền lời dẫn
+python cli.py write-script --topic "Gấu Bắc Cực" --kind documentary --scenes 10 --account acc1
+python cli.py write-script --topic "Gấu Bắc Cực" --kind documentary --scenes 10
+python cli.py prompts --script scripts/gau-bac-cuc.yaml --account acc1 --apply
+python cli.py build --script scripts/gau-bac-cuc.prompts.yaml
+```
+
+Luật viết kịch bản theo từng hướng đã nhúng sẵn: động vật thì mỗi cảnh
+1 cơ chế + 1 con số, mở đầu tương phản + số liệu, kết bằng câu luận điểm;
+phim truyện thì có bảng nhân vật; hoạt hình thì câm + sfx từng cảnh; ASMR
+thì không lời dẫn, chỉ có sfx từng bước nhẹ nhàng.
+
 ## 3. Viết kịch bản
 
 Tạo từ template:

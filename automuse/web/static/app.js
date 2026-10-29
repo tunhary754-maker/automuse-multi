@@ -40,22 +40,14 @@ async function loadStatus() {
     const ba = $("#badge-accounts");
     ba.textContent = `${s.accounts_ready}/${s.accounts} acc sẵn sàng`;
     ba.className = "badge " + (s.accounts_ready ? "ok" : "warn");
-    const be = $("#badge-elevenlabs");
-    be.textContent = s.elevenlabs_configured ? "ElevenLabs ✓" : "ElevenLabs chưa có key";
-    be.className = "badge " + (s.elevenlabs_configured ? "ok" : "warn");
-    const bl = $("#badge-lipsync");
-    bl.textContent = s.lipsync_configured ? "Sync Labs ✓" : "Sync Labs chưa có key";
-    bl.className = "badge " + (s.lipsync_configured ? "ok" : "warn");
     $("#stat-cards").innerHTML = `
       <div class="stat"><div class="num">${s.accounts}</div><div class="label">Tài khoản Muse</div></div>
       <div class="stat"><div class="num">${s.outputs}</div><div class="label">Video đã dựng</div></div>
-      <div class="stat"><div class="num">${s.elevenlabs_configured ? "Có" : "Chưa"}</div><div class="label">ElevenLabs key</div></div>
-      <div class="stat"><div class="num">${s.lipsync_configured ? "Có" : "Chưa"}</div><div class="label">Sync Labs key</div></div>
       <div class="stat"><div class="num">${s.ffmpeg ? "OK" : "Thiếu"}</div><div class="label">ffmpeg</div></div>`;
     const steps = [];
     if (!s.accounts_ready) steps.push("Thêm tài khoản Muse ở tab <b>Tài khoản Muse</b> (cookie + proxy).");
-    if (!s.elevenlabs_configured) steps.push("Nhập key ElevenLabs ở mục <b>Lồng tiếng</b> bên dưới để lồng tiếng thật.");
-    steps.push("Chọn một kịch bản ở tab <b>Kịch bản</b> rồi bấm <b>Tạo video</b> — thử bằng mock trước cũng được.");
+    steps.push("Mở tab <b>Tạo tập mới</b>: nhập chủ đề → Muse viết kịch bản → bấm <b>Tạo video</b>.");
+    steps.push("Video build xong sẽ tự có tiếng gốc và file lời dẫn txt để bạn lồng tiếng sau.");
     if (s.outputs) steps.push(`Bạn đã có ${s.outputs} video trong tab <b>Kết quả</b>.`);
     $("#next-steps").innerHTML = steps.map((x) => `<li>${x}</li>`).join("");
   } catch (e) {
@@ -83,6 +75,10 @@ async function loadAccounts() {
   const sel = $("#build-accounts-select");
   sel.innerHTML = list.filter((a) => a.enabled)
     .map((a) => `<option value="${esc(a.name)}">${esc(a.name)}</option>`).join("");
+  const csel = $("#create-account");
+  csel.innerHTML = `<option value="">— danh sách mẫu (không cần acc) —</option>` +
+    list.filter((a) => a.enabled)
+      .map((a) => `<option value="${esc(a.name)}">${esc(a.name)} (nhờ Muse)</option>`).join("");
 }
 async function checkAccount(name) {
   const el = $("#check-" + name);
@@ -122,9 +118,12 @@ $("#account-form").addEventListener("submit", async (e) => {
 });
 
 // ---------------- scripts ----------------
+// Tool chỉ làm phim tài liệu: chỉ liệt kê kịch bản documentary (kèm file
+// lỗi chưa xác định được kind, để người dùng vẫn thấy và sửa được).
 let currentScriptPath = null;
 async function loadScripts() {
-  const list = await api("/api/scripts");
+  const all = await api("/api/scripts");
+  const list = all.filter((s) => s.kind === "documentary" || s.kind === "?");
   $("#scripts-list").innerHTML = list.map((s) => `
     <li data-path="${esc(s.path)}" class="${s.path === currentScriptPath ? "selected" : ""}">
       <span><b>${esc(s.name)}</b> <span class="meta">${esc(s.source)} · ${esc(s.kind)} · ${s.scenes} cảnh</span></span>
@@ -144,23 +143,21 @@ async function openScript(path) {
   loadScripts();
 }
 $("#btn-new-script").addEventListener("click", () => {
-  const name = prompt("Tên kịch bản mới (vd: phim-ma):");
+  const name = prompt("Tên kịch bản mới (vd: ca-voi-xanh):");
   if (!name) return;
   currentScriptPath = `scripts/${name}.yaml`;
   $("#editor-title").textContent = currentScriptPath + " (mới)";
   $("#script-editor").value = `title: "${name}"
-kind: movie
+kind: documentary
 aspect: "16:9"
 default_voice: narrator
-voices:
-  narrator: ""
+fps: 30
 scenes:
   - id: s01
     title: "Cảnh 1"
-    duration: 6
+    duration: 10
     visual: "Describe the scene in English for Muse video generation..."
-    narration: "Lời thoại tiếng Việt ở đây."
-    voice: narrator
+    narration: "Lời dẫn tiếng Việt ở đây, một cơ chế sinh tồn và một con số."
 `;
 });
 async function loadTemplate(kind) {
@@ -169,7 +166,6 @@ async function loadTemplate(kind) {
   currentScriptPath = null; // template chỉ để xem, lưu sẽ hỏi tên mới
   $("#editor-title").textContent = path + " (mẫu — bấm Lưu để tạo bản sao)";
 }
-$("#btn-template-movie").addEventListener("click", () => loadTemplate("movie"));
 $("#btn-template-doc").addEventListener("click", () => loadTemplate("documentary"));
 $("#btn-save-script").addEventListener("click", async () => {
   const msg = $("#script-msg");
@@ -206,12 +202,10 @@ $("#build-form").addEventListener("submit", async (e) => {
   const body = {
     script: fd.get("script"),
     mock: fd.get("mock") === "on",
-    no_tts: fd.get("no_tts") === "on",
+    no_tts: true, // phim tài liệu: luôn không lồng tiếng, lời dẫn xuất txt riêng
     no_iris: fd.get("no_iris") === "on",
     resume: fd.get("resume") === "on",
-    lipsync: fd.get("lipsync") === "on",
     out: fd.get("out") || "",
-    music: fd.get("music") || "",
     accounts: [...$("#build-accounts-select").selectedOptions].map((o) => o.value),
   };
   msg.className = "msg"; msg.textContent = "Đang gửi job…";
@@ -260,98 +254,65 @@ async function loadJobs() {
     </li>`).join("") || "<li>Chưa có job nào.</li>";
 }
 
-// ---------------- elevenlabs ----------------
-async function loadElevenLabsCard() {
-  const sel = $("#el-voice-select");
-  const msg = $("#el-msg");
+// ---------------- create: topics + write-script (phim tài liệu) ----------------
+let createdScriptPath = null;
+$("#btn-suggest-topics").addEventListener("click", async () => {
+  const msg = $("#create-msg");
+  const box = $("#topics-list");
+  msg.className = "msg"; msg.textContent = "Đang gợi ý chủ đề…";
+  box.innerHTML = "";
   try {
-    const s = await api("/api/status");
-    const vs = s.elevenlabs_settings || {};
-    $("#el-speed").value = vs.speed ?? 1;
-    $("#el-stability").value = vs.stability ?? 0.5;
-    $("#el-similarity").value = vs.similarity_boost ?? 0.75;
-    $("#el-style").value = vs.style ?? 0;
-    $("#el-model").value = vs.model || "eleven_multilingual_v2";
-    $("#el-speaker-boost").checked = vs.use_speaker_boost !== false;
-    if (!s.elevenlabs_configured) {
-      sel.innerHTML = `<option value="">— nhập key trước —</option>`;
-      return;
-    }
-    const voices = await api("/api/voices");
-    const def = s.elevenlabs_default_voice || "";
-    sel.innerHTML = voices.map((v) => `<option value="${esc(v.voice_id)}" ${v.name === def ? "selected" : ""}>${esc(v.name)}</option>`).join("");
-    if (def) msg.textContent = `Giọng mặc định hiện tại: ${def}.`;
+    const r = await api("/api/topics", { method: "POST", body: JSON.stringify({
+      keyword: $("#create-keyword").value.trim(),
+      count: 10,
+      account: $("#create-account").value,
+    }) });
+    if (!r.items.length) { msg.textContent = "Không gợi ý được chủ đề nào."; return; }
+    msg.textContent = `Gợi ý ${r.items.length} chủ đề — bấm vào một chủ đề để dùng.`;
+    box.innerHTML = `<ul class="list">` + r.items.map((t) => `
+      <li data-title="${esc(t.title)}"><span><b>${esc(t.title)}</b>
+      <span class="meta">${esc(t.summary || "")}</span></span></li>`).join("") + `</ul>`;
+    $$("#topics-list li").forEach((li) => li.addEventListener("click", () => {
+      $("#create-topic").value = li.dataset.title;
+      msg.textContent = `Đã chọn chủ đề: ${li.dataset.title} — bấm “Viết kịch bản”.`;
+    }));
   } catch (e) {
-    msg.textContent = `Không tải được giọng: ${e.message}`;
+    msg.className = "msg err"; msg.textContent = e.message;
   }
-}
-$("#btn-save-voice-settings").addEventListener("click", async () => {
-  const msg = $("#el-settings-msg");
-  const voiceId = $("#el-voice-id").value.trim();
-  const body = {
-    speed: parseFloat($("#el-speed").value),
-    stability: parseFloat($("#el-stability").value),
-    similarity_boost: parseFloat($("#el-similarity").value),
-    style: parseFloat($("#el-style").value),
-    model: $("#el-model").value,
-    use_speaker_boost: $("#el-speaker-boost").checked,
-  };
-  if (voiceId) body.voice = voiceId;
-  msg.textContent = "Đang lưu…";
-  try {
-    await api("/api/voices/settings", { method: "POST", body: JSON.stringify(body) });
-    msg.textContent = "Đã lưu cài đặt giọng.";
-    loadElevenLabsCard();
-  } catch (e) { msg.textContent = `Lỗi: ${e.message}`; }
 });
-$("#btn-save-el-key").addEventListener("click", async () => {
-  const msg = $("#el-msg");
-  const key = $("#el-key").value.trim();
-  if (!key) { msg.textContent = "Chưa nhập key."; return; }
-  msg.textContent = "Đang kiểm tra key…";
+$("#btn-write-script").addEventListener("click", async () => {
+  const msg = $("#create-msg");
+  const topic = $("#create-topic").value.trim();
+  if (!topic) { msg.className = "msg err"; msg.textContent = "Nhập chủ đề trước đã."; return; }
+  msg.className = "msg"; msg.textContent = "Muse đang viết kịch bản… (có thể mất 1–2 phút)";
   try {
-    const r = await api("/api/elevenlabs/key", { method: "POST", body: JSON.stringify({ key }) });
-    msg.textContent = `Đã lưu key — tìm thấy ${r.voices} giọng.`;
-    $("#el-key").value = "";
-    loadStatus(); loadElevenLabsCard();
-  } catch (e) { msg.textContent = `Lỗi: ${e.message}`; }
+    const r = await api("/api/write-script", { method: "POST", body: JSON.stringify({
+      topic,
+      scenes: parseInt($("#create-scenes").value, 10) || 10,
+      duration: parseInt($("#create-duration").value, 10) || 10,
+      account: $("#create-account").value,
+    }) });
+    createdScriptPath = r.path;
+    msg.className = "msg ok";
+    msg.textContent = `Đã lưu kịch bản: ${r.path} (${r.scenes} cảnh).`;
+    $("#create-result").style.display = "";
+    $("#create-result-title").textContent = `${r.title} — ${r.path}`;
+    const content = await api(`/api/scripts/content?path=${encodeURIComponent(r.path)}`);
+    $("#create-result-script").textContent = content.content;
+    loadScripts();
+  } catch (e) {
+    msg.className = "msg err"; msg.textContent = e.message;
+  }
 });
-$("#btn-el-set-default").addEventListener("click", async () => {
-  const msg = $("#el-msg");
-  const voice = $("#el-voice-select").value;
-  if (!voice) { msg.textContent = "Chưa chọn giọng (nhập key trước)."; return; }
-  try {
-    const r = await api("/api/voices/default", { method: "POST", body: JSON.stringify({ voice }) });
-    msg.textContent = `Giọng mặc định: ${r.name}.`;
-  } catch (e) { msg.textContent = `Lỗi: ${e.message}`; }
+$("#btn-edit-created-script").addEventListener("click", () => {
+  if (!createdScriptPath) return;
+  gotoTab("scripts");
+  openScript(createdScriptPath);
 });
-$("#btn-el-test").addEventListener("click", async () => {
-  const msg = $("#el-msg");
-  const audio = $("#el-test-audio");
-  const voice = $("#el-voice-select").value;
-  if (!voice) { msg.textContent = "Chưa chọn giọng (nhập key trước)."; return; }
-  msg.textContent = "Đang tạo file nghe thử…";
-  try {
-    const r = await api("/api/voices/test", { method: "POST", body: JSON.stringify({ voice }) });
-    audio.src = r.file + "?t=" + Date.now();
-    audio.style.display = "block";
-    audio.play().catch(() => {});
-    msg.textContent = "Bấm play để nghe thử.";
-  } catch (e) { msg.textContent = `Lỗi: ${e.message}`; }
-});
-
-// ---------------- lipsync ----------------
-$("#btn-save-sync-key").addEventListener("click", async () => {
-  const msg = $("#sync-msg");
-  const key = $("#sync-key").value.trim();
-  if (!key) { msg.textContent = "Chưa nhập key."; return; }
-  msg.textContent = "Đang kiểm tra key…";
-  try {
-    await api("/api/lipsync/key", { method: "POST", body: JSON.stringify({ key }) });
-    msg.textContent = "Đã lưu key Sync Labs.";
-    $("#sync-key").value = "";
-    loadStatus();
-  } catch (e) { msg.textContent = `Lỗi: ${e.message}`; }
+$("#btn-build-created-script").addEventListener("click", () => {
+  if (!createdScriptPath) return;
+  gotoTab("build");
+  $("#build-script-select").value = createdScriptPath;
 });
 
 // ---------------- outputs ----------------
@@ -375,6 +336,7 @@ function outputCard(o) {
         ${m.mock ? "· mock" : ""}</div>
       <div class="actions">
         ${o.final ? `<a href="${esc(o.final)}" download>⬇ Tải video</a>` : ""}
+        ${o.narration_txt ? `<a href="${esc(o.narration_txt)}" download>⬇ Lời dẫn .txt</a>` : ""}
         ${o.subtitles ? `<a href="${esc(o.subtitles)}" download>⬇ Phụ đề .srt</a>` : ""}
       </div>
     </div>
@@ -418,5 +380,5 @@ $("#outputs-search").addEventListener("input", () => {
 $("#btn-more-outputs").addEventListener("click", () => { outputsPage++; loadOutputs(false); });
 
 // ---------------- init ----------------
-loadStatus(); loadAccounts(); loadScripts(); loadOutputs(); loadJobs(); loadElevenLabsCard();
+loadStatus(); loadAccounts(); loadScripts(); loadOutputs(); loadJobs();
 setInterval(loadStatus, 30000);

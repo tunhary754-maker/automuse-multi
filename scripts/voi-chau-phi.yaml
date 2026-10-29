@@ -1,0 +1,27 @@
+title: Voi Châu Phi, Kẻ Khổng Lồ Của Thảo Nguyên
+kind: documentary
+aspect: '16:9'
+default_voice: narrator
+fps: 30
+scenes:
+- id: s01
+  title: Khổng Lồ Vẫn Sợ Nóng
+  duration: 10
+  visual: A massive African savanna elephant flaps its large ears slowly under harsh
+    midday sun on dry golden grassland.
+  narration: Nặng tới 6 tấn, voi châu Phi vẫn phải quạt tai để hạ nhiệt giữa thảo
+    nguyên nóng.
+- id: s02
+  title: Chiếc Vòi Là Bình Nước
+  duration: 10
+  visual: An African savanna elephant dips its trunk into a muddy waterhole and sprays
+    water into its mouth.
+  narration: Vòi voi châu Phi hút tới 8 lít nước mỗi lần, giúp đàn vượt mùa khô khắc
+    nghiệt.
+- id: s03
+  title: Kẻ Phá Rừng Trồng Rừng
+  duration: 10
+  visual: An African savanna elephant walks slowly across golden grassland, leaving
+    dung behind as birds follow near young green saplings.
+  narration: Voi châu Phi gieo hơn 100 loài cây qua phân, biến kẻ phá rừng thành người
+    trồng rừng.

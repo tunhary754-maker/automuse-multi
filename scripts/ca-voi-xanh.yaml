@@ -1,0 +1,26 @@
+title: Cá Voi Xanh, Kẻ Khổng Lồ Hiền Lành Nhất Đại Dương
+kind: documentary
+aspect: '16:9'
+default_voice: narrator
+fps: 30
+scenes:
+- id: s01
+  title: Khổng Lồ Ăn Sinh Vật Bé Xíu
+  duration: 10
+  visual: A massive blue whale glides slowly beside a tiny school of krill in deep
+    blue open ocean, dwarfing the small creatures.
+  narration: Dài 30 mét, nặng 200 tấn, cá voi xanh vẫn sống nhờ những con nhuyễn thể
+    bé xíu.
+- id: s02
+  title: Cú Đớp Khổng Lồ
+  duration: 10
+  visual: A blue whale lunges upward with its huge mouth open, engulfing a dense cloud
+    of krill in bright blue water.
+  narration: Cá voi xanh há miệng nuốt 90 tấn nước, lọc nhuyễn thể bằng tấm sừng hàm.
+- id: s03
+  title: Kẻ Khổng Lồ Nuôi Kẻ Bé Nhất
+  duration: 10
+  visual: A blue whale swims slowly near the ocean surface, leaving a reddish-brown
+    nutrient plume behind as tiny plankton swirl in sunlit water.
+  narration: Cá voi xanh thải phân nuôi phù du, để kẻ khổng lồ nhất nuôi sống hàng
+    triệu sinh vật nhỏ.

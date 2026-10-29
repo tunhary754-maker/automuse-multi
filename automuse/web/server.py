@@ -35,8 +35,10 @@ import json
 import mimetypes
 import re
 import shutil
+import subprocess
 import threading
 import time
+import unicodedata
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -56,6 +58,7 @@ from ..elevenlabs import ElevenLabsClient, ElevenLabsError, build_elevenlabs
 from ..lipsync import SyncError, SyncLipSyncClient
 from ..muse_client import build_client
 from ..script import load_script, validate
+from ..topics import suggest_topics, write_script
 from ..usage import UsageTracker
 from . import jobs as job_store
 
@@ -180,6 +183,7 @@ def _outputs_catalog(query: str | None = None) -> list[dict]:
             "final": f"/files/{project.name}/final.mp4" if final.exists() else None,
             "poster": f"/files/{project.name}/poster.jpg" if poster.exists() else None,
             "subtitles": f"/files/{project.name}/subtitles.srt" if (project / "subtitles.srt").exists() else None,
+            "narration_txt": f"/files/{project.name}/loi-dan.txt" if (project / "loi-dan.txt").exists() else None,
             "size": final.stat().st_size if final.exists() else 0,
             "mtime": final.stat().st_mtime if final.exists() else project.stat().st_mtime,
             "manifest": None,
@@ -199,6 +203,156 @@ def _outputs_catalog(query: str | None = None) -> list[dict]:
         out.append(info)
     out.sort(key=lambda d: d["mtime"], reverse=True)
     return out
+
+
+# ---------------------------------------------------------------- wildlife workflow
+# Tool này chỉ làm video Thế giới động vật: kịch bản phim tài liệu, build
+# không lồng tiếng, lời dẫn xuất txt riêng, tiếng gốc ghép lại vào final.
+
+def _gateway_client_for(account_name: str):
+    """Gateway client cho acc, hoặc (None, lỗi). Giống cli._muse_gateway_client."""
+    from ..gateway import GatewayClient
+
+    mgr = AccountManager()
+    acc = mgr.get(account_name)
+    if not acc:
+        return None, f"Không có tài khoản '{account_name}'."
+    client = build_client(acc, load_settings(), mock=False)
+    if not isinstance(client, GatewayClient):
+        return None, ("Cần transport gateway để nhờ Muse "
+                       "(settings.yaml: muse.transport: gateway).")
+    return client, ""
+
+
+def _slugify_topic(topic: str) -> str:
+    """Tên file an toàn từ chủ đề (bỏ dấu tiếng Việt). Giống cli._slugify_topic."""
+    norm = unicodedata.normalize("NFD", topic)
+    ascii_text = "".join(c for c in norm if unicodedata.category(c) != "Mn")
+    slug = re.sub(r"[^a-z0-9]+", "-", ascii_text.lower()).strip("-")
+    return slug or "kich-ban"
+
+
+def _narration_txt(script) -> str:
+    """Lời dẫn từng cảnh thành txt: id — tiêu đề (timecode) + câu dẫn."""
+    t = 0
+    out: list[str] = []
+    for sc in script.scenes:
+        d = sc.duration or 10
+        out.append(f"{sc.id} — {sc.title} "
+                   f"({t // 60:02d}:{t % 60:02d}–{(t + d) // 60:02d}:{(t + d) % 60:02d})")
+        out.append(sc.narration or "")
+        out.append("")
+        t += d
+    return "\n".join(out)
+
+
+def _ffmpeg_volume(path: Path) -> tuple[float | None, float | None]:
+    """Đo mean/max volume (dB) của file, trả (None, None) nếu đo lỗi."""
+    try:
+        r = subprocess.run(
+            ["ffmpeg", "-i", str(path), "-af", "volumedetect",
+             "-vn", "-sn", "-dn", "-f", "null", "/dev/null"],
+            capture_output=True, text=True, timeout=120,
+        )
+        mean = maxv = None
+        for line in (r.stderr or "").splitlines():
+            if "mean_volume:" in line:
+                try:
+                    mean = float(line.split("mean_volume:")[1].split("dB")[0].strip())
+                except ValueError:
+                    pass
+            if "max_volume:" in line:
+                try:
+                    maxv = float(line.split("max_volume:")[1].split("dB")[0].strip())
+                except ValueError:
+                    pass
+        return mean, maxv
+    except (subprocess.SubprocessError, OSError, ValueError):
+        return None, None
+
+
+def _attach_native_audio(out_dir: Path, log) -> None:
+    """Ghép tiếng gốc từ clips/*.mp4 vào final.mp4, chuẩn hóa nếu quá nhỏ.
+
+    Pipeline ráp final mặc định bỏ tiếng gốc nên final ban đầu chỉ có hình.
+    Tiếng gốc mỗi clip khác nhau rất nhiều: mean -20 đến -27 dB thì nghe
+    rõ, dưới -30 dB thì nghe như không có tiếng → chuẩn hóa loudnorm
+    về -16 LUFS trước khi giao (quy tắc trong skill wildlife-documentary).
+    """
+    final = out_dir / "final.mp4"
+    clips_dir = out_dir / "clips"
+    if not final.exists() or not clips_dir.is_dir():
+        log("Bỏ qua ghép tiếng gốc: thiếu final.mp4 hoặc thư mục clips.")
+        return
+    clips = sorted(p for p in clips_dir.glob("s*.mp4")
+                   if ".tmp." not in p.name and p.stat().st_size > 0)
+    if not clips:
+        log("Bỏ qua ghép tiếng gốc: không thấy clip nào trong clips/.")
+        return
+    inputs: list[str] = []
+    for c in clips:
+        inputs += ["-i", str(c)]
+    filt = "".join(f"[{i}:a]" for i in range(1, len(clips) + 1))
+    filt += f"concat=n={len(clips)}:v=0:a=1[a]"
+    tmp = out_dir / "final-audio.mp4"
+    r = subprocess.run(
+        ["ffmpeg", "-y", "-i", str(final)] + inputs +
+        ["-filter_complex", filt, "-map", "0:v", "-map", "[a]",
+         "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-shortest", str(tmp)],
+        capture_output=True, text=True, timeout=600,
+    )
+    if r.returncode != 0 or not tmp.exists():
+        log("Ghép tiếng gốc thất bại — giữ nguyên final không tiếng.")
+        return
+    tmp.replace(final)
+    mean, maxv = _ffmpeg_volume(final)
+    log(f"Tiếng gốc đã ghép: mean {mean} dB, max {maxv} dB.")
+    if mean is not None and mean < -30:
+        normed = out_dir / "final-norm.mp4"
+        r = subprocess.run(
+            ["ffmpeg", "-y", "-i", str(final),
+             "-af", "loudnorm=I=-16:TP=-1.5:LRA=11",
+             "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", str(normed)],
+            capture_output=True, text=True, timeout=600,
+        )
+        if r.returncode == 0 and normed.exists():
+            normed.replace(final)
+            mean2, maxv2 = _ffmpeg_volume(final)
+            log(f"Tiếng gốc quá nhỏ ({mean} dB) → đã chuẩn hóa: "
+                f"mean {mean2} dB, max {maxv2} dB.")
+        else:
+            log("Chuẩn hóa âm lượng thất bại — giữ bản tiếng gốc chưa chuẩn hóa.")
+
+
+def _post_process_build(manifest: dict, script_path: str, log) -> dict:
+    """Sau build phim tài liệu: xuất lời dẫn txt + ghép tiếng gốc.
+
+    Chỉ chạy cho build thật (không mock). Cập nhật manifest.json trên đĩa
+    và dict manifest trả về cho UI.
+    """
+    final_path = manifest.get("final") or ""
+    out_dir = Path(final_path).parent if final_path else None
+    if not out_dir or not out_dir.is_dir():
+        return manifest
+    try:
+        script = load_script(script_path)
+    except Exception as e:  # noqa: BLE001
+        log(f"Không xuất được lời dẫn txt: {e}")
+        script = None
+    if script is not None:
+        txt_path = out_dir / "loi-dan.txt"
+        txt_path.write_text(_narration_txt(script), encoding="utf-8")
+        manifest["narration_txt"] = str(txt_path)
+        log(f"Đã xuất lời dẫn: {txt_path}")
+    _attach_native_audio(out_dir, log)
+    manifest["audio_bed"] = "native"
+    try:
+        (out_dir / "manifest.json").write_text(
+            json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+    except OSError as e:
+        log(f"Không ghi lại được manifest.json: {e}")
+    return manifest
 
 
 # ---------------------------------------------------------------- build jobs
@@ -225,21 +379,25 @@ def _run_build_job(job_id: str, params: dict) -> None:
         manager = AccountManager()
         script_path = params["script"]
         out_dir = params.get("out") or None
+        # Tool chỉ làm phim tài liệu Thế giới động vật: luôn không lồng
+        # tiếng (lời dẫn xuất txt riêng), không nhạc nền, không lip-sync.
         manifest = pipeline_mod.run_build(
             script_path=script_path,
             out_dir=out_dir,
             settings=settings,
             manager=manager,
             mock=bool(params.get("mock")),
-            no_tts=bool(params.get("no_tts")),
+            no_tts=True,
             iris_out=not bool(params.get("no_iris")),
             resume=bool(params.get("resume")),
             account_names=params.get("accounts") or None,
-            music=params.get("music") or None,
-            api_key=elevenlabs_api_key(),
-            lipsync=bool(params.get("lipsync")),
-            sync_api_key=get_sync_key(),
+            music=None,
+            api_key=None,
+            lipsync=False,
+            sync_api_key=None,
         )
+        if not manifest.get("mock"):
+            manifest = _post_process_build(manifest, script_path, job_log)
         job["manifest"] = manifest
         job["status"] = "done"
     except Exception as e:  # noqa: BLE001 - ghi lỗi vào job cho UI hiển thị
@@ -595,6 +753,99 @@ class StudioHandler(BaseHTTPRequestHandler):
             except Exception as e:  # noqa: BLE001
                 return _json(self, {"error": str(e)}, 400)
             return _json(self, {"ok": True, "file": f"/files/voice-test/{dest.name}"})
+
+        if path == "/api/topics":
+            body = _read_json(self)
+            keyword = (body.get("keyword") or "").strip()
+            try:
+                count = max(1, min(20, int(body.get("count") or 10)))
+            except (TypeError, ValueError):
+                count = 10
+            client = None
+            account = (body.get("account") or "").strip()
+            if account:
+                client, err = _gateway_client_for(account)
+                if err:
+                    return _json(self, {"error": err}, 400)
+            try:
+                ideas = suggest_topics("documentary", keyword=keyword,
+                                       count=count, client=client)
+            except Exception as e:  # noqa: BLE001
+                return _json(self, {"error": str(e)}, 400)
+            return _json(self, {"items": [
+                {"title": i.title, "summary": i.summary} for i in ideas
+            ]})
+
+        if path == "/api/write-script":
+            body = _read_json(self)
+            topic = (body.get("topic") or "").strip()
+            if not topic:
+                return _json(self, {"error": "thiếu chủ đề"}, 400)
+            try:
+                scenes = max(1, min(20, int(body.get("scenes") or 10)))
+            except (TypeError, ValueError):
+                scenes = 10
+            try:
+                duration = max(5, min(30, int(body.get("duration") or 10)))
+            except (TypeError, ValueError):
+                duration = 10
+            client = None
+            account = (body.get("account") or "").strip()
+            if account:
+                client, err = _gateway_client_for(account)
+                if err:
+                    return _json(self, {"error": err}, 400)
+            out = (body.get("out") or "").strip()
+            if out:
+                target = _safe_rel_path(REPO_ROOT, out)
+                if not target:
+                    return _json(self, {"error": "đường dẫn out không hợp lệ"}, 400)
+                out_path = str(target)
+            else:
+                out_path = f"scripts/{_slugify_topic(topic)}.yaml"
+            try:
+                script = write_script(topic, kind="documentary",
+                                      scene_count=scenes,
+                                      scene_duration=duration, client=client)
+            except Exception as e:  # noqa: BLE001
+                return _json(self, {"error": str(e)}, 400)
+            import yaml
+
+            data = {
+                "title": script.title,
+                "kind": script.kind,
+                "aspect": script.aspect,
+                **({"characters": script.characters} if script.characters else {}),
+                **({"voices": script.voices} if script.voices else {}),
+                "default_voice": script.default_voice,
+                "fps": script.fps,
+                **({"music": script.music} if script.music else {}),
+                "scenes": [
+                    {
+                        "id": s.id,
+                        "title": s.title,
+                        "duration": s.duration,
+                        "visual": s.visual,
+                        "narration": s.narration,
+                        **({"voice": s.voice} if s.voice else {}),
+                        **({"character": s.character} if s.character else {}),
+                        **({"reference_image": s.reference_image} if s.reference_image else {}),
+                        **({"sfx": s.sfx} if s.sfx else {}),
+                        **({"lipsync": True} if s.lipsync else {}),
+                    }
+                    for s in script.scenes
+                ],
+            }
+            dest = REPO_ROOT / out_path
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_text(yaml.dump(data, allow_unicode=True, sort_keys=False),
+                            encoding="utf-8")
+            return _json(self, {
+                "ok": True,
+                "path": out_path,
+                "title": script.title,
+                "scenes": len(script.scenes),
+            })
 
         if path == "/api/build":
             body = _read_json(self)

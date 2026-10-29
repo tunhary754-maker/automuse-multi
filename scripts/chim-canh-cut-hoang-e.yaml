@@ -1,0 +1,26 @@
+title: Chim Cánh Cụt Hoàng Đế Ở Nam Cực
+kind: documentary
+aspect: '16:9'
+default_voice: narrator
+fps: 30
+scenes:
+- id: s01
+  title: Bão Tuyết Và Đám Đông
+  duration: 10
+  visual: A vast huddle of emperor penguins stands motionless in a raging Antarctic
+    blizzard, snow blowing horizontally across the ice.
+  narration: Giữa bão tuyết âm 60 độ, hàng nghìn chim cánh cụt hoàng đế tụ lại, sưởi
+    ấm cho nhau.
+- id: s02
+  title: Người Cha Nhịn Ăn
+  duration: 10
+  visual: A lone male emperor penguin balances a single egg on his feet beneath his
+    brood pouch, standing still in polar night darkness.
+  narration: Chim trống ấp trứng trên chân suốt 65 ngày, nhịn ăn giữa mùa đông tối.
+- id: s03
+  title: Lạnh Lại Giúp Sống Sót
+  duration: 10
+  visual: An emperor penguin dives gracefully beneath clear Antarctic sea ice, chasing
+    a school of small silver fish in deep blue water.
+  narration: Chim cánh cụt hoàng đế lặn sâu 500 mét, và ở nơi lạnh nhất, lạnh lại
+    giúp chúng sống sót.

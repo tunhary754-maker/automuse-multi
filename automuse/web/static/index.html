@@ -3,22 +3,21 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AutoMuse Studio — Quản lý video AI</title>
+<title>Thế Giới Động Vật Studio — Tạo video phim tài liệu</title>
 <link rel="stylesheet" href="/style.css">
 </head>
 <body>
 <header>
-  <div class="brand"><span class="logo-mark">▶</span> AutoMuse <span>Studio</span></div>
+  <div class="brand"><span class="logo-mark">▶</span> Thế Giới Động Vật <span>Studio</span></div>
   <div class="status" id="status-badges">
     <span class="badge" id="badge-ffmpeg">ffmpeg …</span>
     <span class="badge" id="badge-accounts">acc …</span>
-    <span class="badge" id="badge-elevenlabs">ElevenLabs …</span>
-    <span class="badge" id="badge-lipsync">Sync Labs …</span>
   </div>
 </header>
 
 <nav class="tabs">
-  <button class="tab active" data-tab="dashboard">Tổng quan</button>
+  <button class="tab active" data-tab="create">Tạo tập mới</button>
+  <button class="tab" data-tab="dashboard">Tổng quan</button>
   <button class="tab" data-tab="accounts">Tài khoản Muse</button>
   <button class="tab" data-tab="scripts">Kịch bản</button>
   <button class="tab" data-tab="build">Tạo video</button>
@@ -26,70 +25,52 @@
 </nav>
 
 <main>
+  <!-- ============ TẠO TẬP MỚI ============ -->
+  <section id="tab-create" class="panel active">
+    <h2>Tạo tập mới <small>chọn chủ đề → Muse viết kịch bản → tạo video</small></h2>
+    <div class="card form">
+      <div class="row">
+        <label class="grow">Chủ đề tập phim
+          <input id="create-topic" placeholder="vd: Cá voi xanh, Voi châu Phi, Chim cánh cụt hoàng đế" autocomplete="off">
+        </label>
+        <label>Tài khoản Muse
+          <select id="create-account"></select>
+        </label>
+      </div>
+      <div class="row">
+        <label>Số cảnh
+          <input type="number" id="create-scenes" min="1" max="20" value="10">
+        </label>
+        <label>Thời lượng mỗi cảnh (giây)
+          <input type="number" id="create-duration" min="5" max="30" value="10">
+        </label>
+        <label class="grow">Từ khóa gợi ý (tùy chọn)
+          <input id="create-keyword" placeholder="vd: đại dương, sa mạc, băng giá" autocomplete="off">
+        </label>
+      </div>
+      <div class="row">
+        <button class="btn" id="btn-suggest-topics">💡 Gợi ý chủ đề</button>
+        <button class="btn primary big" id="btn-write-script">✍️ Viết kịch bản</button>
+        <span class="msg" id="create-msg"></span>
+      </div>
+      <div id="topics-list"></div>
+    </div>
+    <div class="card" id="create-result" style="display:none">
+      <div class="row between">
+        <strong id="create-result-title"></strong>
+        <span>
+          <button class="btn small" id="btn-edit-created-script">✏️ Sửa kịch bản</button>
+          <button class="btn small primary" id="btn-build-created-script">▶ Tạo video từ kịch bản này</button>
+        </span>
+      </div>
+      <pre id="create-result-script" class="log" style="max-height:400px"></pre>
+      <span class="msg" id="create-result-msg"></span>
+    </div>
+  </section>
+
   <!-- ============ DASHBOARD ============ -->
-  <section id="tab-dashboard" class="panel active">
+  <section id="tab-dashboard" class="panel">
     <div class="cards" id="stat-cards"></div>
-    <div class="card form" id="elevenlabs-card">
-      <h2 style="margin-top:0">Lồng tiếng — ElevenLabs</h2>
-      <div class="row">
-        <label class="grow">API key
-          <input type="password" id="el-key" placeholder="sk_... (chỉ lưu trên máy này)" autocomplete="off">
-        </label>
-        <button class="btn primary" id="btn-save-el-key" style="align-self:flex-end">Lưu key</button>
-      </div>
-      <div class="row">
-        <label class="grow">Giọng đọc
-          <select id="el-voice-select"></select>
-        </label>
-        <button class="btn" id="btn-el-set-default" style="align-self:flex-end">Đặt làm mặc định</button>
-        <button class="btn" id="btn-el-test" style="align-self:flex-end">▶ Nghe thử</button>
-      </div>
-      <div class="row">
-        <label class="grow">Giọng custom (voice_id)
-          <input id="el-voice-id" placeholder="vd: 21m00Tcm4TlvDq8ikWAM (để trống = dùng giọng đã chọn)" autocomplete="off">
-        </label>
-      </div>
-      <div class="row">
-        <label>Tốc độ đọc
-          <input type="number" id="el-speed" min="0.5" max="2" step="0.05" value="1">
-        </label>
-        <label>Độ ổn định
-          <input type="number" id="el-stability" min="0" max="1" step="0.05" value="0.5">
-        </label>
-        <label>Độ giống giọng
-          <input type="number" id="el-similarity" min="0" max="1" step="0.05" value="0.75">
-        </label>
-        <label>Độ biểu cảm
-          <input type="number" id="el-style" min="0" max="1" step="0.05" value="0">
-        </label>
-      </div>
-      <div class="row">
-        <label class="grow">Model
-          <select id="el-model">
-            <option value="eleven_multilingual_v2">eleven_multilingual_v2 (tiếng Việt tốt)</option>
-            <option value="eleven_v3">eleven_v3 (biểu cảm nhất)</option>
-            <option value="eleven_turbo_v2_5">eleven_turbo_v2_5 (nhanh, rẻ)</option>
-            <option value="eleven_flash_v2_5">eleven_flash_v2_5 (nhanh nhất)</option>
-          </select>
-        </label>
-        <label style="align-self:flex-end"><input type="checkbox" id="el-speaker-boost" checked> Tăng độ rõ giọng</label>
-        <button class="btn primary" id="btn-save-voice-settings" style="align-self:flex-end">Lưu cài đặt giọng</button>
-      </div>
-      <span class="msg" id="el-settings-msg"></span>
-      <audio id="el-test-audio" controls style="width:100%;display:none"></audio>
-      <span class="msg" id="el-msg"></span>
-    </div>
-    <div class="card form" id="lipsync-card">
-      <h2 style="margin-top:0">Khớp môi — Sync Labs</h2>
-      <div class="row">
-        <label class="grow">API key
-          <input type="password" id="sync-key" placeholder="sk_... (chỉ lưu trên máy này)" autocomplete="off">
-        </label>
-        <button class="btn primary" id="btn-save-sync-key" style="align-self:flex-end">Lưu key</button>
-      </div>
-      <span class="hint">Dùng khi build có tick “Khớp môi”: clip của cảnh nào có <code>lipsync: true</code> sẽ được vẽ lại miệng khớp với giọng đọc. Sync Labs tính phí theo giây ngoài gói tháng.</span>
-      <span class="msg" id="sync-msg"></span>
-    </div>
     <h2>Video mới nhất</h2>
     <div id="latest-outputs" class="outputs-grid"></div>
     <h2>Việc cần làm</h2>
@@ -119,14 +100,13 @@
 
   <!-- ============ SCRIPTS ============ -->
   <section id="tab-scripts" class="panel">
-    <h2>Kịch bản <small>YAML hoặc Markdown — visual tiếng Anh, lời thoại tiếng Việt</small></h2>
+    <h2>Kịch bản phim tài liệu <small>YAML — visual tiếng Anh, lời thoại tiếng Việt</small></h2>
     <div class="scripts-layout">
       <div class="card">
         <div class="row between">
           <strong>Danh sách</strong>
           <span>
             <button class="btn small" id="btn-new-script">+ Kịch bản mới</button>
-            <button class="btn small" id="btn-template-movie">Mẫu phim truyện</button>
             <button class="btn small" id="btn-template-doc">Mẫu tài liệu</button>
           </span>
         </div>
@@ -149,7 +129,7 @@
 
   <!-- ============ BUILD ============ -->
   <section id="tab-build" class="panel">
-    <h2>Tạo video <small>chọn kịch bản → chạy queue → xem log trực tiếp</small></h2>
+    <h2>Tạo video <small>chọn kịch bản phim tài liệu → chạy → xem log trực tiếp (luôn không lồng tiếng, lời dẫn xuất txt riêng, tiếng gốc tự ghép vào final)</small></h2>
     <form id="build-form" class="card form">
       <div class="row">
         <label class="grow">Kịch bản
@@ -160,15 +140,12 @@
         </label>
       </div>
       <div class="row checks">
-        <label><input type="checkbox" name="mock"> Chạy thử (mock — không cần acc/key)</label>
-        <label><input type="checkbox" name="no_tts"> Không lồng tiếng</label>
+        <label><input type="checkbox" name="mock"> Chạy thử (mock — không cần acc)</label>
         <label><input type="checkbox" name="no_iris"> Không iris-out</label>
         <label><input type="checkbox" name="resume"> Chạy tiếp từ chỗ dừng</label>
-        <label><input type="checkbox" name="lipsync"> Khớp môi (lip-sync) — cảnh có lipsync: true</label>
       </div>
       <div class="row">
         <label class="grow">Thư mục đầu ra (tùy chọn) <input name="out" placeholder="output/ten-phim (để trống = tự đặt theo tên kịch bản)"></label>
-        <label class="grow">Nhạc nền (tùy chọn) <input name="music" placeholder="đường dẫn file mp3/wav"></label>
       </div>
       <button type="submit" class="btn primary big" id="btn-start-build">▶ Bắt đầu tạo video</button>
       <span class="msg" id="build-msg"></span>
@@ -187,10 +164,10 @@
 
   <!-- ============ OUTPUTS ============ -->
   <section id="tab-outputs" class="panel">
-    <h2>Kết quả <small>video đã dựng xong — xem trước và tải về</small></h2>
+    <h2>Kết quả <small>video đã dựng xong — xem trước, tải video và lời dẫn txt</small></h2>
     <div class="row" style="margin-bottom:12px">
       <label class="grow">Tìm kiếm
-        <input id="outputs-search" placeholder="Tên phim, project, thể loại…" autocomplete="off">
+        <input id="outputs-search" placeholder="Tên phim, project…" autocomplete="off">
       </label>
       <span class="meta" id="outputs-count-text" style="align-self:flex-end"></span>
     </div>
@@ -202,7 +179,7 @@
 </main>
 
 <footer>
-  AutoMuse Studio chạy local trên máy của bạn — cookie và API key không rời khỏi máy.
+  Thế Giới Động Vật Studio chạy local trên máy của bạn — cookie không rời khỏi máy.
   Xem hướng dẫn đầy đủ trong <code>README.md</code>.
 </footer>
 
