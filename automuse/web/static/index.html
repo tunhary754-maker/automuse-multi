@@ -135,10 +135,25 @@
       <button type="submit" class="btn primary">+ Thêm tài khoản</button>
       <span class="msg" id="account-msg"></span>
     </form>
-    <table class="table" id="accounts-table">
-      <thead><tr><th>Tên</th><th>Proxy</th><th>Jobs</th><th>Tuần này</th><th>Trạng thái</th><th></th></tr></thead>
-      <tbody></tbody>
-    </table>
+    <div class="card">
+      <div class="table-toolbar">
+        <div class="pills" id="accounts-pills"></div>
+        <label class="grow">🔍 Tìm kiếm
+          <input id="accounts-search" placeholder="Tên acc, ghi chú, proxy…" autocomplete="off">
+        </label>
+      </div>
+      <div class="bulk-bar">
+        <button class="btn small" id="btn-accounts-select-all">☑ Chọn tất cả</button>
+        <button class="btn small" id="btn-accounts-check-selected">✓ Kiểm tra đã chọn</button>
+        <button class="btn small danger" id="btn-accounts-del-selected">🗑 Xóa đã chọn</button>
+        <span class="msg" id="accounts-msg"></span>
+      </div>
+      <div class="table-scroll"><table class="data" id="accounts-table">
+        <thead><tr><th class="chk"><input type="checkbox" id="accounts-check-all"></th><th class="stt">STT</th><th>Tên &amp; ghi chú</th><th>Proxy</th><th>Jobs</th><th>Tuần này</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
+        <tbody id="accounts-tbody"></tbody>
+      </table></div>
+      <p class="hint">Bấm “Kiểm tra” để xem proxy, login và token còn sống không — kết quả giữ lại trong bảng cho tới khi tải lại. Acc tắt (không bật) sẽ không được dùng để viết kịch bản hay dựng video.</p>
+    </div>
     <form id="notify-form" class="card form">
       <h3 style="margin-top:0">📣 Báo qua Telegram khi build hết acc</h3>
       <p class="hint">Khi build hết tài khoản dùng được giữa chừng, tool gửi tin nhắn Telegram để bạn thêm acc mới — rồi build tự làm tiếp cảnh dở dang, không cần chạy lại. Tạo bot qua @BotFather lấy token, chat với bot rồi lấy chat ID từ @userinfobot. Token lưu vào .env (không đẩy lên GitHub).</p>

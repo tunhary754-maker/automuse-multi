@@ -58,33 +58,67 @@ async function loadStatus() {
 }
 
 // ---------------- accounts ----------------
+// ---------------- accounts: bảng (lọc trạng thái, tìm kiếm, tích chọn) ----------------
+let accountsRows = [];
+let accountsFilter = "all"; // all | ready | off
+let accountsQuery = "";
+let accountsSelected = new Set();
+let accountsCheck = {}; // name -> html kết quả kiểm tra (giữ lại khi render lại)
+function accountStatusKey(a) { return a.enabled ? "ready" : "off"; }
+function accountsFiltered() {
+  return accountsRows.filter((a) => {
+    if (accountsFilter !== "all" && accountStatusKey(a) !== accountsFilter) return false;
+    if (accountsQuery) {
+      const hay = `${a.name} ${a.note || ""} ${a.proxy || ""}`.toLowerCase();
+      if (!hay.includes(accountsQuery)) return false;
+    }
+    return true;
+  });
+}
+function accountTableRow(a, stt) {
+  const usage = a.usage
+    ? `${a.usage.videos}/${a.usage.max_videos || "∞"} video · ${a.usage.minutes}/${a.usage.max_minutes || "∞"} phút<br><span class="meta">tuần ${esc(a.usage.week)}</span>`
+    : "-";
+  const checked = accountsSelected.has(a.name) ? "checked" : "";
+  return `<tr>
+    <td class="chk"><input type="checkbox" class="account-check" data-check="${esc(a.name)}" ${checked}></td>
+    <td class="stt">${stt}</td>
+    <td><div class="name-cell"><div class="thumb-ph">👤</div><div class="name-text"><div class="row-title">${esc(a.name)}</div><div class="row-sub">${esc(a.note || "—")}</div></div></div></td>
+    <td>${esc(a.proxy || "—")}</td>
+    <td>${a.jobs_done} ✓ / ${a.jobs_failed} ✗</td>
+    <td>${usage}</td>
+    <td>${!a.enabled ? `<span class="badge">tắt</span>` : `<span class="badge ok">sẵn sàng</span>`}
+        <span class="check-result">${accountsCheck[a.name] || ""}</span></td>
+    <td><div class="row-actions">
+      <button class="btn small" data-check-account="${esc(a.name)}">Kiểm tra</button>
+      <button class="btn small danger" data-del-account="${esc(a.name)}">🗑 Xóa</button>
+    </div></td>
+  </tr>`;
+}
+function renderAccountsTable() {
+  const rows = accountsFiltered();
+  const counts = { all: accountsRows.length, ready: 0, off: 0 };
+  for (const a of accountsRows) counts[accountStatusKey(a)]++;
+  $("#accounts-pills").innerHTML = pillsHtml(counts, accountsFilter, [["all", "Tất cả"], ["ready", "Sẵn sàng"], ["off", "Tắt"]]);
+  $("#accounts-tbody").innerHTML = rows.map((a, i) => accountTableRow(a, i + 1)).join("")
+    || `<tr><td colspan="8" style="text-align:center;color:var(--muted)">Chưa có tài khoản nào.</td></tr>`;
+  const visible = rows.map((a) => a.name);
+  $("#accounts-check-all").checked = visible.length > 0 && visible.every((n) => accountsSelected.has(n));
+}
 async function loadAccounts() {
-  const list = await api("/api/accounts");
-  const tbody = $("#accounts-table tbody");
-  tbody.innerHTML = list.map((a) => `
-    <tr>
-      <td><b>${esc(a.name)}</b><br><span class="meta">${esc(a.note || "")}</span></td>
-      <td>${esc(a.proxy || "-")}</td>
-      <td>${a.jobs_done} ✓ / ${a.jobs_failed} ✗</td>
-      <td>${a.usage ? `${a.usage.videos}/${a.usage.max_videos || "∞"} video · ${a.usage.minutes}/${a.usage.max_minutes || "∞"} phút<br><span class="meta">tuần ${esc(a.usage.week)}</span>` : "-"}</td>
-      <td>${!a.enabled ? "tắt" : '<span class="badge ok">sẵn sàng</span>'}
-          <span class="check-result" id="check-${esc(a.name)}"></span></td>
-      <td>
-        <button class="btn small" onclick="checkAccount('${esc(a.name)}')">Kiểm tra</button>
-        <button class="btn small danger" onclick="deleteAccount('${esc(a.name)}')">Xóa</button>
-      </td>
-    </tr>`).join("") || `<tr><td colspan="6">Chưa có tài khoản nào.</td></tr>`;
+  accountsRows = await api("/api/accounts");
+  renderAccountsTable();
   const sel = $("#build-accounts-select");
-  sel.innerHTML = list.filter((a) => a.enabled)
+  sel.innerHTML = accountsRows.filter((a) => a.enabled)
     .map((a) => `<option value="${esc(a.name)}">${esc(a.name)}</option>`).join("");
   const csel = $("#create-account");
   csel.innerHTML = `<option value="">— danh sách mẫu (không cần acc) —</option>` +
-    list.filter((a) => a.enabled)
+    accountsRows.filter((a) => a.enabled)
       .map((a) => `<option value="${esc(a.name)}">${esc(a.name)} (nhờ Muse)</option>`).join("");
 }
 async function checkAccount(name) {
-  const el = $("#check-" + name);
-  el.textContent = " đang kiểm tra…";
+  accountsCheck[name] = " đang kiểm tra…";
+  renderAccountsTable();
   try {
     const r = await api(`/api/accounts/${encodeURIComponent(name)}/check`, { method: "POST" });
     const parts = [];
@@ -92,16 +126,84 @@ async function checkAccount(name) {
     parts.push(`login ${r.login.ok ? "✓" : "✗"} (${esc(r.login.message)})`);
     if (r.quota) parts.push(`token ${r.quota.ok === true ? "✓" : r.quota.ok === false ? "✗" : "?"} (${esc(r.quota.message)})`);
     if (r.usage) parts.push(`tuần này: ${r.usage.videos}/${r.usage.max_videos || "∞"} video · ${r.usage.minutes}/${r.usage.max_minutes || "∞"} phút`);
-    el.innerHTML = parts.join("<br>");
+    accountsCheck[name] = parts.join("<br>");
   } catch (e) {
-    el.textContent = " lỗi: " + e.message;
+    accountsCheck[name] = " lỗi: " + esc(e.message);
   }
+  renderAccountsTable();
 }
 async function deleteAccount(name) {
   if (!confirm(`Xóa tài khoản ${name}?`)) return;
   await api(`/api/accounts/${encodeURIComponent(name)}`, { method: "DELETE" });
+  delete accountsCheck[name];
+  accountsSelected.delete(name);
   loadAccounts(); loadStatus();
 }
+$("#accounts-pills").addEventListener("click", (e) => {
+  const pill = e.target.closest("[data-pill]");
+  if (!pill) return;
+  accountsFilter = pill.dataset.pill;
+  renderAccountsTable();
+});
+$("#accounts-search").addEventListener("input", (e) => {
+  accountsQuery = e.target.value.trim().toLowerCase();
+  renderAccountsTable();
+});
+$("#accounts-check-all").addEventListener("change", (e) => {
+  const on = e.target.checked;
+  for (const a of accountsFiltered()) {
+    if (on) accountsSelected.add(a.name); else accountsSelected.delete(a.name);
+  }
+  renderAccountsTable();
+});
+$("#btn-accounts-select-all").addEventListener("click", () => {
+  const rows = accountsFiltered();
+  const allChecked = rows.length && rows.every((a) => accountsSelected.has(a.name));
+  for (const a of rows) {
+    if (allChecked) accountsSelected.delete(a.name); else accountsSelected.add(a.name);
+  }
+  renderAccountsTable();
+});
+$("#accounts-tbody").addEventListener("click", (e) => {
+  const check = e.target.closest(".account-check");
+  if (check) {
+    const n = check.dataset.check;
+    if (check.checked) accountsSelected.add(n); else accountsSelected.delete(n);
+    renderAccountsTable();
+    return;
+  }
+  const chk = e.target.closest("[data-check-account]");
+  if (chk) { checkAccount(chk.dataset.checkAccount); return; }
+  const del = e.target.closest("[data-del-account]");
+  if (del) { deleteAccount(del.dataset.delAccount); return; }
+});
+$("#btn-accounts-check-selected").addEventListener("click", async () => {
+  const rows = accountsFiltered().filter((a) => accountsSelected.has(a.name));
+  if (!rows.length) return alert("Chưa tích chọn tài khoản nào.");
+  const msg = $("#accounts-msg");
+  msg.className = "msg"; msg.textContent = `Đang kiểm tra ${rows.length} tài khoản…`;
+  for (const a of rows) {
+    try { await checkAccount(a.name); } catch (e) { /* kết quả ghi vào bảng */ }
+  }
+  msg.className = "msg ok"; msg.textContent = `Đã kiểm tra ${rows.length} tài khoản — xem kết quả trong cột Trạng thái.`;
+});
+$("#btn-accounts-del-selected").addEventListener("click", async () => {
+  const rows = accountsFiltered().filter((a) => accountsSelected.has(a.name));
+  if (!rows.length) return alert("Chưa tích chọn tài khoản nào.");
+  if (!confirm(`Xóa ${rows.length} tài khoản?`)) return;
+  let ok = 0;
+  for (const a of rows) {
+    try {
+      await api(`/api/accounts/${encodeURIComponent(a.name)}`, { method: "DELETE" });
+      delete accountsCheck[a.name];
+      ok++;
+    } catch (e) { /* báo tổng cuối */ }
+  }
+  accountsSelected.clear();
+  const msg = $("#accounts-msg");
+  msg.className = "msg ok"; msg.textContent = `Đã xóa ${ok}/${rows.length} tài khoản.`;
+  loadAccounts(); loadStatus();
+});
 $("#account-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   const fd = new FormData(e.target);
