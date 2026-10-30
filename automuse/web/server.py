@@ -199,6 +199,7 @@ def _scripts_catalog() -> list[dict]:
                            ("scripts", SCRIPTS_DIR)):
         if not folder.exists():
             continue
+        entries: list[dict] = []
         for p in sorted(folder.glob("*.yaml")) + sorted(folder.glob("*.yml")) + sorted(folder.glob("*.md")):
             try:
                 script = load_script(p)
@@ -212,15 +213,24 @@ def _scripts_catalog() -> list[dict]:
             rel = str(p.relative_to(REPO_ROOT))
             # Chủ đề: field "topic" trong YAML (kịch bản từ đợt hàng loạt
             # ghi sẵn); file lỗi hoặc không có topic -> "".
+            # created_at: mốc viết kịch bản (file mới ghi sẵn); kịch bản cũ
+            # chưa có thì lấy mtime làm mốc viết gần nhất.
             topic = ""
+            created_at = None
             if p.suffix.lower() in (".yaml", ".yml"):
                 try:
                     import yaml
 
                     data = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
                     topic = str(data.get("topic", "") or "")
+                    created_at = _normalize_created_at(data.get("created_at"))
                 except Exception:  # noqa: BLE001 - đọc topic lỗi thì bỏ qua
                     topic = ""
+                    created_at = None
+            if created_at is None:
+                from datetime import datetime, timezone
+                created_at = datetime.fromtimestamp(
+                    p.stat().st_mtime, tz=timezone.utc).isoformat()
             # Tiến độ video: chỉ tính cho kịch bản người dùng (scripts/),
             # tránh template/example trùng title khớp nhầm.
             progress = None
@@ -240,7 +250,7 @@ def _scripts_catalog() -> list[dict]:
                         "project": info["project"],
                         "output_path": info["output_path"],
                     }
-            out.append({
+            entries.append({
                 "name": p.stem,
                 "file": p.name,
                 "source": source,
@@ -250,8 +260,17 @@ def _scripts_catalog() -> list[dict]:
                 "title": title,
                 "snippet": snippet,
                 "topic": topic,
+                "created_at": created_at,
                 "progress": progress,
             })
+        if source == "scripts":
+            # Xếp theo thời gian viết: viết trước đứng trước, viết sau ở
+            # hàng sau. Template/example giữ thứ tự tên file như cũ.
+            from datetime import datetime, timezone
+            entries.sort(key=lambda d: (_parse_created_at(d["created_at"])
+                                        or datetime.min.replace(tzinfo=timezone.utc),
+                                        d["path"]))
+        out.extend(entries)
     return out
 
 
@@ -444,16 +463,60 @@ def _attach_native_audio(out_dir: Path, log) -> None:
             log("Chuẩn hóa âm lượng thất bại — giữ bản tiếng gốc chưa chuẩn hóa.")
 
 
+def _normalize_created_at(value):
+    """Chuẩn hóa created_at về chuỗi ISO (datetime -> isoformat)."""
+    from datetime import datetime
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return None
+
+
+def _parse_created_at(value):
+    """created_at -> datetime aware (thiếu tz thì coi là UTC)."""
+    from datetime import datetime, timezone
+    if isinstance(value, datetime):
+        dt = value
+    elif isinstance(value, str):
+        try:
+            dt = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    else:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
 def _save_script_yaml(script, out_path: str, extra: dict | None = None) -> Path:
     """Lưu Script thành YAML (cùng format cli.write-script) vào out_path.
 
     ``extra``: field phụ chèn ngay sau title (vd: {"topic": ...} cho
     kịch bản từ đợt hàng loạt) — load_script bỏ qua field lạ nên an toàn.
+
+    Luôn ghi ``created_at`` (mốc viết kịch bản, để bảng xếp theo thời
+    gian viết): file đã có thì GIỮ NGUYÊN mốc cũ, kể cả khi lưu đè —
+    viết lại không làm kịch bản cũ nhảy xuống cuối bảng.
     """
     import yaml
+    from datetime import datetime, timezone
+
+    dest = REPO_ROOT / out_path
+    created_at = None
+    if dest.exists():
+        try:
+            old = yaml.safe_load(dest.read_text(encoding="utf-8")) or {}
+            created_at = _normalize_created_at(old.get("created_at"))
+        except Exception:  # noqa: BLE001 - file cũ lỗi thì lấy mốc mới
+            created_at = None
+    if not created_at:
+        created_at = datetime.now(timezone.utc).isoformat()
 
     data = {
         "title": script.title,
+        "created_at": created_at,
     }
     if extra:
         data.update(extra)
@@ -978,6 +1041,38 @@ class StudioHandler(BaseHTTPRequestHandler):
                 return _json(self, {"error": "nội dung kịch bản rỗng"}, 400)
             SCRIPTS_DIR.mkdir(parents=True, exist_ok=True)
             dest = SCRIPTS_DIR / f"{name}.yaml"
+            # Giữ thứ tự viết: nội dung lưu thiếu created_at thì chèn lại
+            # (mốc của file cũ, không thì mtime cũ — tức thời điểm viết
+            # trước lần sửa này, chứ không phải bây giờ — để sửa kịch bản
+            # cũ không làm nó nhảy xuống cuối bảng).
+            import yaml as _yaml
+            try:
+                _has = bool((_yaml.safe_load(content) or {}).get("created_at"))
+            except Exception:  # noqa: BLE001 - nội dung lỗi thì vẫn chèn
+                _has = False
+            if not _has:
+                from datetime import datetime, timezone
+                _fallback = None
+                if dest.exists():
+                    try:
+                        _old = _yaml.safe_load(dest.read_text(encoding="utf-8")) or {}
+                        _fallback = _normalize_created_at(_old.get("created_at"))
+                    except Exception:  # noqa: BLE001 - file cũ lỗi thì dùng mtime
+                        _fallback = None
+                    if not _fallback:
+                        _fallback = datetime.fromtimestamp(
+                            dest.stat().st_mtime, tz=timezone.utc).isoformat()
+                if not _fallback:
+                    _fallback = datetime.now(timezone.utc).isoformat()
+                _lines = content.split("\n")
+                _idx = next((i for i, ln in enumerate(_lines)
+                             if ln.startswith("title:")), None)
+                _ins = f"created_at: {_fallback}"
+                if _idx is None:
+                    content = _ins + "\n" + content
+                else:
+                    _lines.insert(_idx + 1, _ins)
+                    content = "\n".join(_lines)
             dest.write_text(content, encoding="utf-8")
             return _json(self, {"ok": True, "path": f"scripts/{name}.yaml"})
 

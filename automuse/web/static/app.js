@@ -303,6 +303,14 @@ function scriptsFiltered() {
     return true;
   });
 }
+// created_at ISO -> "dd/mm/yyyy HH:MM" để nhìn rõ thứ tự viết.
+function fmtDate(iso) {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d)) return "";
+  const p = (n) => String(n).padStart(2, "0");
+  return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
 function scriptTableRow(s, stt) {
   const p = s.progress;
   const clips = p && p.status === "building" ? ` · ${p.clips}/${p.scenes} clip` : "";
@@ -315,7 +323,7 @@ function scriptTableRow(s, stt) {
   return `<tr data-path="${esc(s.path)}">
     <td class="chk"><input type="checkbox" class="script-check" data-check="${esc(s.path)}" ${checked}></td>
     <td class="stt">${stt}</td>
-    <td><div class="name-cell"><div class="thumb-ph">📄</div><div class="name-text"><div class="row-title">${esc(s.title || s.name)}</div><div class="row-sub">${esc(s.snippet || `${s.source} · ${s.kind} · ${s.scenes} cảnh`)}</div></div></div></td>
+    <td><div class="name-cell"><div class="thumb-ph">📄</div><div class="name-text"><div class="row-title">${esc(s.title || s.name)}</div><div class="row-sub">${esc(s.snippet || `${s.source} · ${s.kind} · ${s.scenes} cảnh`)}</div>${s.created_at ? `<div class="row-sub">🕐 ${fmtDate(s.created_at)}</div>` : ""}</div></div></td>
     <td>${esc(s.topic || "—")}</td>
     <td>${esc(s.kind)}</td>
     <td>${esc(s.account || "—")}</td>
@@ -465,6 +473,14 @@ $("#btn-scripts-build-selected").addEventListener("click", async () => {
   loadJobs();
 });
 async function openScript(path) {
+  // Mở kịch bản cụ thể thì bỏ hết bộ lọc cũ để hàng của nó luôn hiện
+  // (không thì kịch bản mới tạo xong có thể bị ẩn sau pill/tìm kiếm/
+  // chủ đề cũ, nhìn như chưa được đẩy sang tab Kịch bản).
+  scriptsFilter = "all";
+  scriptsQuery = "";
+  scriptsTopic = "";
+  const sq = $("#scripts-search"); if (sq) sq.value = "";
+  const tq = $("#scripts-topic-filter"); if (tq) tq.value = "";
   const data = await api(`/api/scripts/content?path=${encodeURIComponent(path)}`);
   currentScriptPath = path;
   editorCanDelete = path.startsWith("scripts/");
@@ -794,6 +810,9 @@ $("#btn-auto-create").addEventListener("click", async () => {
     const content = await api(`/api/scripts/content?path=${encodeURIComponent(r.path)}`);
     $("#create-result-script").textContent = content.content;
     loadScripts();
+    // Tạo xong đẩy thẳng sang tab Kịch bản và mở sẵn kịch bản đó.
+    gotoTab("scripts");
+    openScript(r.path);
   } catch (e) {
     msg.className = "msg err"; msg.textContent = e.message;
   }
@@ -963,6 +982,9 @@ $("#btn-write-script").addEventListener("click", async () => {
     const content = await api(`/api/scripts/content?path=${encodeURIComponent(r.path)}`);
     $("#create-result-script").textContent = content.content;
     loadScripts();
+    // Tạo xong đẩy thẳng sang tab Kịch bản và mở sẵn kịch bản đó.
+    gotoTab("scripts");
+    openScript(r.path);
   } catch (e) {
     msg.className = "msg err"; msg.textContent = e.message;
   }
