@@ -53,11 +53,13 @@ DEFAULT_SETTINGS = {
     },
     "limits": {
         # Giới hạn tuần (tính theo tuần lịch, thứ Hai 00:00 -> thứ Hai sau).
-        # 0 = không giới hạn. Đổi số trong config/settings.yaml cho khớp
-        # với gói Muse của bạn; mỗi acc có thể ghi đè riêng bằng
+        # Mặc định KHÔNG giới hạn (0 = không giới hạn) — tool không tự
+        # chặn theo tuần nữa, Muse tự trừ vào quota/token của acc.
+        # Ai muốn đặt chặn thì ghi số vào config/settings.yaml; mỗi acc
+        # có thể ghi đè riêng bằng
         # `accounts set-limit --name <tên> --videos N --minutes M`.
-        "weekly_max_videos": 20,
-        "weekly_max_minutes": 120,
+        "weekly_max_videos": 0,
+        "weekly_max_minutes": 0,
     },
     "elevenlabs": {
         "model": "eleven_multilingual_v2",
