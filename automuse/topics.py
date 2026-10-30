@@ -553,22 +553,35 @@ def _parse_script_yaml(text: str) -> tuple[str, dict]:
     for i, line in enumerate(lines):
         if i > 0 and re.match(r"^(title|kind|scenes)\s*:", line):
             candidates.append("\n".join(lines[i:]))
+    last_err = None
+    parsed_but_no_scenes = False
     for cand in candidates:
         if not cand.strip():
             continue
         try:
             data = yaml.safe_load(cand)
-        except yaml.YAMLError:
+        except yaml.YAMLError as e:
+            last_err = e
             continue
         if isinstance(data, dict) and isinstance(data.get("scenes"), list) \
                 and data["scenes"]:
             return cand, data
-    # Kèm đầu reply của Muse để chẩn đoán (YAML lỗi, reply bị cắt, hay
-    # Muse trả văn xuôi) — không có nó thì lỗi parse không gỡ được.
-    snippet = (text or "")[:300].replace("\n", " ")
+        parsed_but_no_scenes = True
+    # Kèm lỗi parser + đầu + cuối reply để chẩn đoán (YAML lỗi ở dòng
+    # nào, reply bị cắt giữa dòng, hay Muse trả văn xuôi) — chỉ kèm đầu
+    # reply như trước thì lỗi parse không gỡ được.
+    if last_err is not None:
+        detail = f"lỗi YAML: {last_err}"
+    elif parsed_but_no_scenes:
+        detail = "parse được nhưng không có danh sách scenes"
+    else:
+        detail = "không tìm thấy khối YAML"
+    head = (text or "")[:300].replace("\n", " ")
+    tail = (text or "")[-300:].replace("\n", " ")
     raise ValueError(
         "Không parse được YAML kịch bản từ câu trả lời của Muse "
-        f"(reply dài {len(text or '')} ký tự, đầu reply: {snippet!r})"
+        f"(reply dài {len(text or '')} ký tự, {detail}, "
+        f"đầu reply: {head!r}, cuối reply: {tail!r})"
     )
 
 
@@ -663,7 +676,26 @@ def write_script(topic: str, kind: str = "documentary", scene_count: int | None 
             )
         try:
             reply = ask_muse_text(client, instruction, timeout=timeout)
-            yaml_text, data = _parse_script_yaml(reply)
+            try:
+                yaml_text, data = _parse_script_yaml(reply)
+            except ValueError as parse_err:
+                # Muse trả YAML lỗi cú pháp (dấu ":" không quote trong
+                # lời dẫn, ký tự tab, reply bị cắt giữa dòng...): nhờ
+                # chính Muse sửa lại 1 lần, kèm lỗi parser để sửa đúng
+                # chỗ. Phiên gateway giữ lịch sử nên "reply trước đó"
+                # chính là bản lỗi. Sửa xong vẫn hỏng thì lỗi chi tiết
+                # (kèm lỗi parser + cuối reply) sẽ báo ra ngoài.
+                repair = (
+                    "Your previous reply was supposed to be a script YAML, "
+                    "but it failed to parse with this error: "
+                    f"{parse_err}. Return the FULL corrected script YAML "
+                    "only, inside one ```yaml block. Only fix the YAML "
+                    "syntax (quote any value containing ': ', remove tab "
+                    "characters, complete any truncated part); do not "
+                    "change the story, scenes, or facts."
+                )
+                reply = ask_muse_text(client, repair, timeout=timeout)
+                yaml_text, data = _parse_script_yaml(reply)
             script = _from_yaml(yaml_text)
             # Fix-up: id s01.. theo thứ tự, kind đúng yêu cầu, duration
             # mặc định khi Muse không ghi duration cho cảnh đó.
