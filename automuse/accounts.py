@@ -123,15 +123,22 @@ class ProxyConfig:
             return cls()
         if "://" not in raw:
             raw = "http://" + raw
-        u = urlparse(raw)
-        return cls(
-            raw=raw,
-            scheme=(u.scheme or "http").lower(),
-            host=u.hostname or "",
-            port=u.port or 0,
-            username=u.username or "",
-            password=u.password or "",
-        )
+        try:
+            u = urlparse(raw)
+            return cls(
+                raw=raw,
+                scheme=(u.scheme or "http").lower(),
+                host=u.hostname or "",
+                port=u.port or 0,
+                username=u.username or "",
+                password=u.password or "",
+            )
+        except ValueError:
+            # Cổng sai định dạng (chữ, vượt 0-65535...) -> coi như proxy
+            # không hợp lệ thay vì ném lỗi làm sập cả /api/accounts.
+            # (u.port là property, lỗi chỉ nổ khi truy cập chứ không nổ
+            # ở urlparse, nên try phải bao cả khối dựng này.)
+            return cls(raw=raw)
 
     def is_valid(self) -> bool:
         return bool(self.host and self.port)

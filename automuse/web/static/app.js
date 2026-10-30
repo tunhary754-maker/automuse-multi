@@ -88,6 +88,7 @@ function accountTableRow(a, stt) {
     <td>${a.jobs_done} ✓ / ${a.jobs_failed} ✗</td>
     <td>${usage}</td>
     <td>${!a.enabled ? `<span class="badge">tắt</span>` : `<span class="badge ok">sẵn sàng</span>`}
+        ${a.error ? `<span class="meta">· lỗi: ${esc(a.error)}</span>` : ""}
         <span class="check-result">${accountsCheck[a.name] || ""}</span></td>
     <td><div class="row-actions">
       <button class="btn small" data-check-account="${esc(a.name)}">Kiểm tra</button>
@@ -106,7 +107,15 @@ function renderAccountsTable() {
   $("#accounts-check-all").checked = visible.length > 0 && visible.every((n) => accountsSelected.has(n));
 }
 async function loadAccounts() {
-  accountsRows = await api("/api/accounts");
+  try {
+    accountsRows = await api("/api/accounts");
+  } catch (e) {
+    // API lỗi thì hiện lỗi ngay trong bảng, không để bảng trống im lặng.
+    accountsRows = [];
+    $("#accounts-pills").innerHTML = "";
+    $("#accounts-tbody").innerHTML = `<tr><td colspan="8" style="text-align:center;color:var(--danger)">Không tải được tài khoản: ${esc(e.message)} — thử tải lại trang; nếu vẫn lỗi, kiểm tra lại acc mới thêm (proxy/cookie).</td></tr>`;
+    return;
+  }
   renderAccountsTable();
   const sel = $("#build-accounts-select");
   sel.innerHTML = accountsRows.filter((a) => a.enabled)

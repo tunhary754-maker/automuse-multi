@@ -51,7 +51,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
-from ..accounts import Account, AccountManager, load_cookies
+from ..accounts import Account, AccountManager, ProxyConfig, load_cookies
 from ..batches import (
     append_batch,
     batch_progress,
@@ -703,6 +703,32 @@ def _build_results_zip(projects: list[str], out_dir: Path) -> tuple[Path, int, i
 
 # ---------------------------------------------------------------- handler
 
+def _accounts_list(mgr=None, tracker=None, settings=None) -> list[dict]:
+    """Danh sách acc cho bảng Tài khoản. 1 acc lỗi không được làm sập
+    cả bảng — acc đó trả về kèm trường error để UI hiện lý do."""
+    mgr = mgr or AccountManager()
+    settings = load_settings() if settings is None else settings
+    tracker = tracker or UsageTracker()
+    out = []
+    for a in mgr.accounts:
+        try:
+            d = a.to_public_dict()
+            d["usage"] = tracker.remaining(a, settings)
+        except Exception as e:  # noqa: BLE001 - 1 acc lỗi không được làm sập cả bảng
+            d = {
+                "name": a.name,
+                "proxy": "-",
+                "enabled": a.enabled,
+                "note": a.note,
+                "jobs_done": a.jobs_done,
+                "jobs_failed": a.jobs_failed,
+                "usage": None,
+                "error": str(e),
+            }
+        out.append(d)
+    return out
+
+
 class StudioHandler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
@@ -800,15 +826,7 @@ class StudioHandler(BaseHTTPRequestHandler):
             })
 
         if path == "/api/accounts":
-            mgr = AccountManager()
-            settings = load_settings()
-            tracker = UsageTracker()
-            out = []
-            for a in mgr.accounts:
-                d = a.to_public_dict()
-                d["usage"] = tracker.remaining(a, settings)
-                out.append(d)
-            return _json(self, out)
+            return _json(self, _accounts_list())
 
         if path == "/api/voices":
             mock = qs.get("mock", ["0"])[0] == "1" or not elevenlabs_api_key()
@@ -914,6 +932,10 @@ class StudioHandler(BaseHTTPRequestHandler):
                     return _json(self, {"error": "cookie rỗng/không parse được"}, 400)
             except Exception as e:  # noqa: BLE001
                 return _json(self, {"error": f"cookie không hợp lệ: {e}"}, 400)
+            # Proxy sai định dạng thì báo ngay lúc thêm, tránh giá trị hỏng
+            # chui vào accounts.json rồi làm sập bảng mỗi lần tải.
+            if body.get("proxy") and not ProxyConfig.parse(body["proxy"]).is_valid():
+                return _json(self, {"error": "proxy không hợp lệ (cần dạng host:port hoặc http://user:pass@host:port)"}, 400)
             mgr = AccountManager()
             try:
                 mgr.add(Account(
