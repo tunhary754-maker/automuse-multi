@@ -41,6 +41,37 @@
       <p class="hint">Mỗi cảnh ~10 giây nên 8 phút ≈ 48 cảnh. Kịch bản càng dài càng cần nhiều dữ liệu nên tool sẽ nghiên cứu chủ đề trước khi viết.</p>
     </div>
     <div class="card form">
+      <h2 style="margin-top:0">Sản xuất hàng loạt — theo chủ đề</h2>
+      <p class="hint">Nhập số chủ đề, số tập mỗi chủ đề và số phút mỗi tập — tool tạo ra đúng số kịch bản đó, mỗi chủ đề 1 loạt tập. Vd: 2 chủ đề, 10 tập, 20 phút/tập → 20 kịch bản, mỗi chủ đề 10 kịch bản 20 phút. Chỉ tạo kịch bản (chưa dựng video); dựng video sau ở tab Kịch bản hoặc Tạo video. Kịch bản xong từng cái sẽ báo qua Telegram (nếu đã cấu hình): chủ đề + tên kịch bản.</p>
+      <div class="row">
+        <label>Số chủ đề
+          <input type="number" id="batch-topic-count" min="1" max="20" value="2">
+        </label>
+        <label>Số tập mỗi chủ đề
+          <input type="number" id="batch-episodes" min="1" max="20" value="10">
+        </label>
+        <label>Số phút mục tiêu mỗi tập
+          <input type="number" id="batch-minutes" min="3" max="60" value="8">
+        </label>
+      </div>
+      <label>Chủ đề (mỗi dòng 1 chủ đề — để trống để Muse tự gợi ý theo xu hướng tìm kiếm)
+        <textarea id="batch-topics" rows="4" placeholder="Cá voi xanh&#10;Voi châu Phi"></textarea>
+      </label>
+      <div class="row">
+        <button class="btn" id="btn-batch-trending">🔥 Gợi ý chủ đề theo xu hướng</button>
+        <button class="btn primary big" id="btn-batch-create">🚀 Tạo hàng loạt kịch bản</button>
+        <span class="msg" id="batch-msg"></span>
+      </div>
+      <div id="batch-topics-preview"></div>
+    </div>
+    <div class="card">
+      <div class="row between">
+        <strong>Các đợt sản xuất</strong>
+        <button class="btn small" id="btn-refresh-batches">↻ Làm mới</button>
+      </div>
+      <div id="batches-list"></div>
+    </div>
+    <div class="card form">
       <div class="row">
         <label class="grow">Chủ đề tập phim
           <input id="create-topic" placeholder="vd: Cá voi xanh, Voi châu Phi, Chim cánh cụt hoàng đế" autocomplete="off">
@@ -136,6 +167,7 @@
           </span>
         </div>
         <ul class="list" id="scripts-list"></ul>
+        <p class="hint">Kịch bản gom theo chủ đề (đợt hàng loạt). Mỗi kịch bản hiện trạng thái video: chưa dựng / đang dựng (số cảnh đã có) / đã dựng xong, kèm nút xóa.</p>
       </div>
       <div class="card editor">
         <div class="row between">
@@ -145,6 +177,15 @@
             <button class="btn small" id="btn-build-script">▶ Tạo video từ kịch bản này</button>
           </span>
         </div>
+        <div class="row">
+          <label class="grow">Bổ sung / sửa gì? (tùy chọn)
+            <input id="script-review-instruction" placeholder="vd: thêm chi tiết về cách săn mồi vào cảnh 3, cảnh 5 bổ sung số liệu thật">
+          </label>
+          <button class="btn small" id="btn-review-script">🔍 Rà soát & sửa</button>
+        </div>
+        <p class="hint">Bấm “Rà soát & sửa”: server gửi kịch bản cho Muse đọc lại — phần nào chưa tốt (thiếu số liệu, thiếu cơ chế, lời dẫn lệch thời lượng, mở đầu/kết chưa đạt) sẽ được sửa lại nhưng giữ sát bản gốc, kèm hướng dẫn bổ sung của bạn ở trên. Bản sửa nạp vào khung soạn để bạn xem rồi mới bấm Lưu (không tự lưu đè).</p>
+        <div id="review-changes"></div>
+        <span class="msg" id="review-msg"></span>
         <textarea id="script-editor" rows="24" spellcheck="false"
           placeholder="Chọn một kịch bản bên trái để xem/sửa, hoặc bấm + Kịch bản mới."></textarea>
         <span class="msg" id="script-msg"></span>
@@ -192,10 +233,16 @@
     <h2>Kết quả <small>video đã dựng xong — xem trước, tải video và lời dẫn txt</small></h2>
     <div class="row" style="margin-bottom:12px">
       <label class="grow">Tìm kiếm
-        <input id="outputs-search" placeholder="Tên phim, project…" autocomplete="off">
+        <input id="outputs-search" placeholder="Tên phim, project, tên kịch bản…" autocomplete="off">
       </label>
       <span class="meta" id="outputs-count-text" style="align-self:flex-end"></span>
     </div>
+    <div class="row" style="margin-bottom:12px">
+      <button class="btn small" id="btn-select-all-outputs">☑ Chọn tất cả trang này</button>
+      <button class="btn small primary" id="btn-download-zip">⬇ Tải ZIP các video đã chọn</button>
+      <span class="msg" id="outputs-msg"></span>
+    </div>
+    <p class="hint">Mỗi thẻ hiện đường dẫn lưu trên máy (output/&lt;tên project&gt;). Tích chọn rồi bấm tải ZIP để tải hàng loạt (gồm video + lời dẫn txt + phụ đề nếu có). Nút 🗑 xóa cả thư mục video đó để tránh loạn.</p>
     <div id="outputs-grid" class="outputs-grid"></div>
     <div style="text-align:center;margin:16px 0">
       <button class="btn" id="btn-more-outputs">Xem thêm</button>

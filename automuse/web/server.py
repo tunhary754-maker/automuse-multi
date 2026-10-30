@@ -20,12 +20,19 @@ API:
     GET  /api/scripts                     liệt kê kịch bản (templates/examples/scripts)
     GET  /api/scripts/content?path=...    đọc nội dung kịch bản
     POST /api/scripts                     lưu kịch bản {name, content}
-    DELETE /api/scripts/<name>            xóa kịch bản (chỉ thư mục scripts/)
+    DELETE /api/scripts/<name>            xóa kịch bản (chỉ thư mục scripts/) + file kèm theo
     POST /api/build                       chạy build {script, mock, accounts, no_tts, no_iris, out}
     GET  /api/jobs                        liệt kê job
     GET  /api/jobs/<id>                   trạng thái + log + manifest của job
     GET  /api/outputs                     liệt kê video đã dựng xong ?page=&per_page=&q=
+    DELETE /api/outputs/<project>         xóa 1 video đã dựng (cả thư mục output/)
+    POST /api/results/download-zip        nén các video đã chọn thành 1 file zip {projects}
     GET  /files/<project>/<file>          stream/download file (hỗ trợ Range)
+    GET  /files-cache/<name>.zip          tải file zip đã nén ở trên
+    GET  /api/batches                     liệt kê các đợt sản xuất hàng loạt
+    GET  /api/batches/<id>                chi tiết 1 đợt (chủ đề, kịch bản, tiến độ)
+    POST /api/trending-topics             gợi ý chủ đề theo xu hướng tìm kiếm {count}
+    POST /api/batch-create                tạo đợt hàng loạt {topics?, topic_count, episodes_per_topic, minutes, account?}
 """
 
 from __future__ import annotations
@@ -45,6 +52,19 @@ from pathlib import Path
 from urllib.parse import parse_qs, unquote, urlparse
 
 from ..accounts import Account, AccountManager, load_cookies
+from ..batches import (
+    append_batch,
+    batch_progress,
+    create_batch,
+    load_batches,
+    prepare_restart,
+    refresh_statuses,
+    remove_script_from_batches,
+    replace_batch,
+    run_batch,
+    save_batches,
+    set_batch_flags,
+)
 from ..config import (
     DEFAULT_OUTPUT_DIR,
     REPO_ROOT,
@@ -57,13 +77,18 @@ from ..config import (
 from ..elevenlabs import ElevenLabsClient, ElevenLabsError, build_elevenlabs
 from ..lipsync import SyncError, SyncLipSyncClient
 from ..muse_client import build_client
+from ..notify import (check_bot_token, save_telegram_config, send_telegram,
+                      send_telegram_to, telegram_configured)
+from ..pipeline import is_connection_error
 from ..script import load_script, validate
-from ..topics import suggest_topics, write_script
+from ..topics import (research_topic, review_script, suggest_topics,
+                      suggest_trending_topics, write_script)
 from ..usage import UsageTracker
 from . import jobs as job_store
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 SCRIPTS_DIR = REPO_ROOT / "scripts"
+CACHE_DIR = REPO_ROOT / "cache"
 
 SAFE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
@@ -119,8 +144,56 @@ def _find_voice(voices: list[dict], want: str) -> dict | None:
     )
 
 
+def _build_progress_map() -> dict:
+    """Quét output/ 1 lần, map kịch bản -> tiến độ build.
+
+    Key ("path", script_path) ưu tiên (manifest.script_path ghi từ
+    _post_process_build cho build mới); key ("title", title) là fallback
+    cho build cũ chưa có script_path. Giá trị: project, output_path,
+    số clip đã có, có final.mp4 chưa, mtime (build mới nhất thắng).
+    """
+    out: dict = {}
+    base = DEFAULT_OUTPUT_DIR
+    if not base.exists():
+        return out
+    for project in base.iterdir():
+        if not project.is_dir():
+            continue
+        manifest: dict = {}
+        manifest_path = project / "manifest.json"
+        if manifest_path.exists():
+            try:
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            except (ValueError, OSError):
+                manifest = {}
+        clips_dir = project / "clips"
+        clips = 0
+        if clips_dir.is_dir():
+            clips = sum(1 for f in clips_dir.iterdir()
+                        if f.suffix.lower() == ".mp4")
+        info = {
+            "project": project.name,
+            "output_path": f"output/{project.name}",
+            "clips": clips,
+            "final": (project / "final.mp4").exists(),
+            "mtime": project.stat().st_mtime,
+        }
+        key_path = manifest.get("script_path")
+        if key_path:
+            prev = out.get(("path", key_path))
+            if prev is None or info["mtime"] > prev["mtime"]:
+                out[("path", key_path)] = info
+        title = manifest.get("title")
+        if title:
+            prev = out.get(("title", title))
+            if prev is None or info["mtime"] > prev["mtime"]:
+                out[("title", title)] = info
+    return out
+
+
 def _scripts_catalog() -> list[dict]:
     out: list[dict] = []
+    pmap = _build_progress_map()
     for source, folder in (("template", REPO_ROOT / "templates"),
                            ("example", REPO_ROOT / "examples"),
                            ("scripts", SCRIPTS_DIR)):
@@ -131,15 +204,49 @@ def _scripts_catalog() -> list[dict]:
                 script = load_script(p)
                 scenes = len(script.scenes)
                 kind = script.kind
+                title = script.title
             except Exception:  # noqa: BLE001 - file lỗi thì vẫn liệt kê
-                scenes, kind = 0, "?"
+                scenes, kind, title = 0, "?", ""
+            rel = str(p.relative_to(REPO_ROOT))
+            # Chủ đề: field "topic" trong YAML (kịch bản từ đợt hàng loạt
+            # ghi sẵn); file lỗi hoặc không có topic -> "".
+            topic = ""
+            if p.suffix.lower() in (".yaml", ".yml"):
+                try:
+                    import yaml
+
+                    data = yaml.safe_load(p.read_text(encoding="utf-8")) or {}
+                    topic = str(data.get("topic", "") or "")
+                except Exception:  # noqa: BLE001 - đọc topic lỗi thì bỏ qua
+                    topic = ""
+            # Tiến độ video: chỉ tính cho kịch bản người dùng (scripts/),
+            # tránh template/example trùng title khớp nhầm.
+            progress = None
+            if source == "scripts" and scenes:
+                info = pmap.get(("path", rel))
+                if info is None and title:
+                    info = pmap.get(("title", title))
+                if info is not None:
+                    pct = round(100 * info["clips"] / scenes) if scenes else 0
+                    status = ("done" if info["final"]
+                              else "building" if info["clips"] else "none")
+                    progress = {
+                        "status": status,
+                        "clips": info["clips"],
+                        "scenes": scenes,
+                        "pct": min(100, pct),
+                        "project": info["project"],
+                        "output_path": info["output_path"],
+                    }
             out.append({
                 "name": p.stem,
                 "file": p.name,
                 "source": source,
-                "path": str(p.relative_to(REPO_ROOT)),
+                "path": rel,
                 "kind": kind,
                 "scenes": scenes,
+                "topic": topic,
+                "progress": progress,
             })
     return out
 
@@ -180,6 +287,7 @@ def _outputs_catalog(query: str | None = None) -> list[dict]:
         manifest = project / "manifest.json"
         info: dict = {
             "project": project.name,
+            "output_path": f"output/{project.name}",
             "final": f"/files/{project.name}/final.mp4" if final.exists() else None,
             "poster": f"/files/{project.name}/poster.jpg" if poster.exists() else None,
             "subtitles": f"/files/{project.name}/subtitles.srt" if (project / "subtitles.srt").exists() else None,
@@ -187,18 +295,24 @@ def _outputs_catalog(query: str | None = None) -> list[dict]:
             "size": final.stat().st_size if final.exists() else 0,
             "mtime": final.stat().st_mtime if final.exists() else project.stat().st_mtime,
             "manifest": None,
+            "script_name": "",
         }
         if manifest.exists():
             try:
                 info["manifest"] = json.loads(manifest.read_text(encoding="utf-8"))
             except (ValueError, OSError):
                 pass
+        if info["manifest"]:
+            sp = str(info["manifest"].get("script_path", "") or "")
+            if sp:
+                info["script_name"] = Path(sp).stem
         if not (info["final"] or info["manifest"]):
             continue
         if q:
             title = str((info["manifest"] or {}).get("title", ""))
             kind = str((info["manifest"] or {}).get("kind", ""))
-            if q not in f"{project.name} {title} {kind}".lower():
+            script_path = str((info["manifest"] or {}).get("script_path", ""))
+            if q not in f"{project.name} {title} {kind} {script_path} {info['script_name']}".lower():
                 continue
         out.append(info)
     out.sort(key=lambda d: d["mtime"], reverse=True)
@@ -324,12 +438,20 @@ def _attach_native_audio(out_dir: Path, log) -> None:
             log("Chuẩn hóa âm lượng thất bại — giữ bản tiếng gốc chưa chuẩn hóa.")
 
 
-def _save_script_yaml(script, out_path: str) -> Path:
-    """Lưu Script thành YAML (cùng format cli.write-script) vào out_path."""
+def _save_script_yaml(script, out_path: str, extra: dict | None = None) -> Path:
+    """Lưu Script thành YAML (cùng format cli.write-script) vào out_path.
+
+    ``extra``: field phụ chèn ngay sau title (vd: {"topic": ...} cho
+    kịch bản từ đợt hàng loạt) — load_script bỏ qua field lạ nên an toàn.
+    """
     import yaml
 
     data = {
         "title": script.title,
+    }
+    if extra:
+        data.update(extra)
+    data.update({
         "kind": script.kind,
         "aspect": script.aspect,
         **({"characters": script.characters} if script.characters else {}),
@@ -352,7 +474,7 @@ def _save_script_yaml(script, out_path: str) -> Path:
             }
             for s in script.scenes
         ],
-    }
+    })
     dest = REPO_ROOT / out_path
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_text(yaml.dump(data, allow_unicode=True, sort_keys=False),
@@ -382,6 +504,9 @@ def _post_process_build(manifest: dict, script_path: str, log) -> dict:
         log(f"Đã xuất lời dẫn: {txt_path}")
     _attach_native_audio(out_dir, log)
     manifest["audio_bed"] = "native"
+    # Ghi lại kịch bản gốc để tab Kịch bản/Kết quả nối video với kịch bản
+    # (tính % tiến độ, tìm kiếm theo tên kịch bản).
+    manifest["script_path"] = script_path
     try:
         (out_dir / "manifest.json").write_text(
             json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -443,6 +568,121 @@ def _run_build_job(job_id: str, params: dict) -> None:
     finally:
         pipeline_mod.log = orig_log
         job["finished_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
+
+
+# ---------------------------------------------------------------- batch jobs
+
+_BATCH_THREADS: dict[str, threading.Thread] = {}
+
+
+def _refresh_batch_statuses() -> None:
+    """Đợt nào status 'running'/'paused' mà thread đã chết/mất (server
+    restart, crash) thì đánh 'interrupted' để UI không hiển thị 'đang
+    chạy' mãi. Đợt interrupted dùng được nút 'chạy tiếp'."""
+    alive = {bid for bid, t in _BATCH_THREADS.items() if t.is_alive()}
+    refresh_statuses(alive)
+
+
+def _run_batch_job(batch_id: str) -> None:
+    """Chạy 1 đợt hàng loạt trong thread nền (dùng automuse/batches)."""
+    from ..pipeline import is_connection_error
+
+    batches = load_batches()
+    batch = next((b for b in batches if b.get("id") == batch_id), None)
+    if batch is None:
+        return
+    if batch.get("log") is None:
+        batch["log"] = []
+
+    def log(msg: str) -> None:
+        batch["log"].append(msg)
+        batch["log"] = batch["log"][-200:]
+
+    def notify(text: str) -> bool:
+        try:
+            if telegram_configured():
+                return send_telegram(text)
+        except Exception:  # noqa: BLE001 - thông báo lỗi không dừng đợt
+            pass
+        return False
+
+    mgr = AccountManager()
+    names = [a.name for a in mgr.enabled_accounts()]
+    deps = {
+        "account_names": names,
+        "get_client": lambda name: _gateway_client_for(name),
+        "research": lambda topic, client: research_topic(topic, client),
+        "write": lambda topic, client, target_scenes, research, timeout: (
+            write_script(topic, kind="documentary", scene_count=None,
+                         client=client, strict=True,
+                         target_scenes=target_scenes, research=research,
+                         timeout=timeout)),
+        "save_script": lambda script, out_path, topic: (
+            _save_script_yaml(script, out_path, extra={"topic": topic})),
+        "slugify": _slugify_topic,
+        "notify": notify,
+        "is_connection_error": is_connection_error,
+        "log": log,
+        "scripts_dir": SCRIPTS_DIR,
+    }
+    try:
+        run_batch(batch, deps)
+    except Exception as e:  # noqa: BLE001 - crash vòng chạy vẫn ghi trạng thái
+        batch["status"] = "failed"
+        log(f"LỖI đợt: {e}")
+        batches = load_batches()
+        for i, b in enumerate(batches):
+            if b.get("id") == batch_id:
+                batches[i] = batch
+                break
+        else:
+            batches.append(batch)
+        save_batches(batches)
+    finally:
+        _BATCH_THREADS.pop(batch_id, None)
+
+
+def _build_results_zip(projects: list[str], out_dir: Path) -> tuple[Path, int, int]:
+    """Nén các project output đã chọn thành 1 zip.
+
+    Mỗi project góp final.mp4 + loi-dan.txt + subtitles.srt (file nào
+    có thì lấy). Trả (zip_path, số project, số file). Raise ValueError
+    nếu tên không hợp lệ / không thấy project / không có file nào.
+    """
+    import zipfile
+
+    if not projects:
+        raise ValueError("chưa chọn video nào")
+    if len(projects) > 100:
+        raise ValueError("tối đa 100 video mỗi lần tải")
+    dirs = []
+    for name in projects:
+        name = str(name)
+        if not SAFE_NAME_RE.match(name):
+            raise ValueError(f"tên project không hợp lệ: {name}")
+        target = _safe_rel_path(DEFAULT_OUTPUT_DIR, name)
+        if not target or not target.is_dir():
+            raise ValueError(f"không thấy video: {name}")
+        dirs.append((name, target))
+    out_dir.mkdir(parents=True, exist_ok=True)
+    zip_name = (f"studio-download-{time.strftime('%Y%m%d-%H%M%S')}-"
+                f"{uuid.uuid4().hex[:6]}.zip")
+    zip_path = out_dir / zip_name
+    added = 0
+    with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        for name, d in dirs:
+            for fname in ("final.mp4", "loi-dan.txt", "subtitles.srt"):
+                f = d / fname
+                if f.is_file():
+                    zf.write(f, arcname=f"{name}/{fname}")
+                    added += 1
+    if not added:
+        try:
+            zip_path.unlink()
+        except OSError:
+            pass
+        raise ValueError("các video đã chọn không có file nào để tải")
+    return zip_path, len(dirs), added
 
 
 # ---------------------------------------------------------------- handler
@@ -576,6 +816,24 @@ class StudioHandler(BaseHTTPRequestHandler):
                 return _json(self, {"error": "không thấy job"}, 404)
             return _json(self, job)
 
+        if path == "/api/batches":
+            _refresh_batch_statuses()
+            batches = load_batches()
+            out = []
+            for b in reversed(batches):
+                p = batch_progress(b)
+                out.append({**b, "progress": p})
+            return _json(self, out)
+
+        if path.startswith("/api/batches/"):
+            _refresh_batch_statuses()
+            batch_id = unquote(path[len("/api/batches/"):])
+            batch = next((b for b in load_batches()
+                          if b.get("id") == batch_id), None)
+            if not batch:
+                return _json(self, {"error": "không thấy đợt này"}, 404)
+            return _json(self, {**batch, "progress": batch_progress(batch)})
+
         if path == "/api/outputs":
             # Phân trang: 1000 video cũng chỉ trả 1 trang/lần (mặc định 20).
             try:
@@ -603,6 +861,16 @@ class StudioHandler(BaseHTTPRequestHandler):
         if path.startswith("/files/"):
             rel = path[len("/files/"):]
             target = _safe_rel_path(DEFAULT_OUTPUT_DIR, rel)
+            if not target or not target.is_file():
+                return _json(self, {"error": "không thấy file"}, 404)
+            return self._send_file(target)
+
+        if path.startswith("/files-cache/"):
+            # Chỉ phục vụ file zip đã nén từ /api/results/download-zip.
+            name = unquote(path[len("/files-cache/"):])
+            if not SAFE_NAME_RE.match(name) or not name.endswith(".zip"):
+                return _json(self, {"error": "tên file không hợp lệ"}, 400)
+            target = _safe_rel_path(CACHE_DIR, name)
             if not target or not target.is_file():
                 return _json(self, {"error": "không thấy file"}, 404)
             return self._send_file(target)
@@ -670,6 +938,95 @@ class StudioHandler(BaseHTTPRequestHandler):
             dest.write_text(content, encoding="utf-8")
             return _json(self, {"ok": True, "path": f"scripts/{name}.yaml"})
 
+        if path == "/api/scripts/review":
+            # Muse đọc lại kịch bản, sửa phần chưa tốt (giữ sát bản gốc)
+            # và áp dụng hướng dẫn bổ sung của người dùng. CHỈ TRẢ bản
+            # sửa để người dùng xem rồi bấm Lưu — không tự lưu đè.
+            import tempfile
+
+            body = _read_json(self)
+            content = str(body.get("content") or "")
+            instruction = str(body.get("instruction") or "")
+            if not content.strip():
+                return _json(self, {"error": "chưa có nội dung kịch bản"}, 400)
+            tmp_path = None
+            try:
+                with tempfile.NamedTemporaryFile("w", suffix=".yaml",
+                                                 delete=False,
+                                                 encoding="utf-8") as f:
+                    f.write(content)
+                    tmp_path = f.name
+                orig = load_script(tmp_path)
+                orig_errors = validate(orig)
+                if orig_errors:
+                    return _json(self, {"error": "kịch bản gốc lỗi: "
+                                                 + "; ".join(orig_errors)}, 400)
+                try:
+                    import yaml
+
+                    orig_topic = str((yaml.safe_load(content) or {})
+                                     .get("topic", "") or "")
+                except Exception:  # noqa: BLE001 - topic đọc lỗi thì bỏ qua
+                    orig_topic = ""
+            except Exception as e:  # noqa: BLE001
+                return _json(self, {"error": f"kịch bản gốc không đọc được: {e}"},
+                             400)
+            finally:
+                if tmp_path:
+                    try:
+                        Path(tmp_path).unlink()
+                    except OSError:
+                        pass
+            mgr = AccountManager()
+            ready = mgr.enabled_accounts()
+            if not ready:
+                return _json(self, {"error": "cần tài khoản Muse sẵn sàng để rà soát — "
+                                             "thêm acc ở tab Tài khoản Muse trước"},
+                             400)
+            # Thử lần lượt từng acc: client chỉ lỗi khi gọi thật (vd: acc1
+            # thiếu authToken dù check login vẫn OK) nên acc lỗi thì chuyển
+            # sang acc khác, giống auto-create — không dừng ở acc đầu.
+            fixed = changes = fixed_script = None
+            last_err = ""
+            for acc in ready:
+                c, err = _gateway_client_for(acc.name)
+                if c is None:
+                    last_err = err or ""
+                    continue
+                try:
+                    fixed, changes, fixed_script = review_script(
+                        content, c, instruction)
+                    break
+                except Exception as e:  # noqa: BLE001 - thử acc tiếp theo
+                    last_err = str(e)
+                    if is_connection_error(e) and telegram_configured():
+                        send_telegram(f"⚠️ Acc '{acc.name}' KHÔNG KẾT NỐI "
+                                      f"ĐƯỢC: {last_err} — rà soát đang thử "
+                                      f"acc khác.")
+            if fixed is None:
+                return _json(self, {"error": last_err or "không rà soát được"},
+                             400)
+            # Giữ lại topic để kịch bản không rơi khỏi nhóm chủ đề.
+            if orig_topic and not any(line.startswith("topic:")
+                                      for line in fixed.splitlines()):
+                lines = fixed.splitlines()
+                for i, line in enumerate(lines):
+                    if line.startswith("title:"):
+                        lines.insert(i + 1, "topic: " + json.dumps(
+                            orig_topic, ensure_ascii=False))
+                        break
+                fixed = "\n".join(lines)
+                if content.endswith("\n"):
+                    fixed += "\n"
+            return _json(self, {
+                "ok": True,
+                "fixed_content": fixed,
+                "changes": changes,
+                "scenes_before": len(orig.scenes),
+                "scenes_after": len(fixed_script.scenes),
+                "title": fixed_script.title,
+            })
+
         if path == "/api/elevenlabs/key":
             body = _read_json(self)
             key = (body.get("key") or "").strip()
@@ -703,8 +1060,6 @@ class StudioHandler(BaseHTTPRequestHandler):
         if path == "/api/notify/save":
             # Nhập Telegram bot token + chat ID: kiểm tra token qua getMe,
             # kiểm tra chat bằng tin thử, rồi mới lưu vào .env.
-            from ..notify import (check_bot_token, save_telegram_config,
-                                  send_telegram_to, telegram_configured)
             body = _read_json(self)
             token = (body.get("token") or "").strip()
             chat_id = (body.get("chat_id") or "").strip()
@@ -723,7 +1078,6 @@ class StudioHandler(BaseHTTPRequestHandler):
             return _json(self, {"ok": True, "bot": info})
 
         if path == "/api/notify/test":
-            from ..notify import send_telegram, telegram_configured
             if not telegram_configured():
                 return _json(self, {"error": "chưa cấu hình Telegram — nhập token + chat ID trước"}, 400)
             if not send_telegram("✅ Tin thử từ automuse-multi — Telegram đang hoạt động."):
@@ -944,8 +1298,6 @@ class StudioHandler(BaseHTTPRequestHandler):
             last_err = ""
             # Acc nào không kết nối được thì báo lỗi luôn (Telegram nếu có
             # + kèm vào kết quả), dù vẫn thử acc khác làm tiếp.
-            from ..notify import send_telegram, telegram_configured
-            from ..pipeline import is_connection_error
             account_warnings: list[dict] = []
             for acc in ready:
                 client, err = _gateway_client_for(acc.name)
@@ -961,7 +1313,6 @@ class StudioHandler(BaseHTTPRequestHandler):
                     continue
                 # Nghiên cứu trước: kịch bản dài cần nhiều dữ liệu thật.
                 # research_topic không raise (lỗi -> chuỗi rỗng, vẫn viết).
-                from ..topics import research_topic
                 research = research_topic(topic, client)
                 # Kịch bản càng dài Muse viết càng lâu: tăng timeout theo
                 # số cảnh mục tiêu (mặc định 180s chỉ đủ cho ~10-20 cảnh).
@@ -1005,6 +1356,197 @@ class StudioHandler(BaseHTTPRequestHandler):
                 "account_warnings": account_warnings,
             })
 
+        if path == "/api/trending-topics":
+            # Gợi ý chủ đề theo xu hướng tìm kiếm thật (Muse phân tích nhu
+            # cầu), không phải brainstorm vu vơ. Không có acc/gateway lỗi
+            # thì rơi về list mẫu và báo rõ trend_based=False.
+            body = _read_json(self)
+            try:
+                count = int(body.get("count") or 5)
+            except (TypeError, ValueError):
+                count = 5
+            count = max(1, min(20, count))
+            mgr = AccountManager()
+            # Thử lần lượt từng acc cho đến khi có phân tích xu hướng thật:
+            # client chỉ lỗi khi gọi thật (acc hỏng vẫn trả về object) nên
+            # không dừng ở acc đầu tiên.
+            ideas, trend_based = [], False
+            for acc in mgr.enabled_accounts():
+                c, _ = _gateway_client_for(acc.name)
+                if c is None:
+                    continue
+                ideas, trend_based = suggest_trending_topics(count, c)
+                if trend_based:
+                    break
+            if not ideas:
+                ideas, trend_based = suggest_trending_topics(count, None)
+            return _json(self, {
+                "ok": True,
+                "trend_based": trend_based,
+                "topics": [{"title": i.title, "reason": i.summary}
+                           for i in ideas],
+            })
+
+        if path == "/api/batch-create":
+            # Sản xuất hàng loạt: N chủ đề x M tập mỗi chủ đề, mỗi tập K
+            # phút mục tiêu. Chủ đề do người dùng nhập (mỗi dòng 1 chủ
+            # đề) hoặc để trống để Muse gợi ý theo xu hướng. Viết kịch
+            # bản chạy nền trong thread riêng, tiến độ lưu cache/batches.json.
+            body = _read_json(self)
+            try:
+                episodes = int(body.get("episodes_per_topic") or 0)
+            except (TypeError, ValueError):
+                episodes = 0
+            episodes = max(1, min(20, episodes or 10))
+            try:
+                minutes = int(body.get("minutes") or 0)
+            except (TypeError, ValueError):
+                minutes = 0
+            minutes = max(3, min(60, minutes or 8))
+            try:
+                topic_count = int(body.get("topic_count") or 0)
+            except (TypeError, ValueError):
+                topic_count = 0
+            topic_count = max(1, min(20, topic_count or 2))
+            topics: list[dict] = []
+            seen: set[str] = set()
+            for t in body.get("topics") or []:
+                if isinstance(t, dict):
+                    name = str(t.get("name", "") or "").strip()
+                    reason = str(t.get("reason", "") or "")
+                else:
+                    name, reason = str(t).strip(), ""
+                if not name or name.lower() in seen:
+                    continue
+                seen.add(name.lower())
+                topics.append({"name": name, "reason": reason})
+            topics_source = "user" if topics else ""
+            mgr = AccountManager()
+            ready = mgr.enabled_accounts()
+            if not ready:
+                return _json(self, {"error": "chưa có tài khoản Muse sẵn sàng — "
+                                             "thêm acc ở tab Tài khoản Muse trước"},
+                             400)
+            if not topics:
+                # Thử lần lượt từng acc cho đến khi có phân tích xu hướng
+                # thật (client chỉ lỗi khi gọi thật, acc hỏng vẫn trả về
+                # object nên không dừng ở acc đầu tiên).
+                ideas, trend_based = [], False
+                for acc in ready:
+                    c, _ = _gateway_client_for(acc.name)
+                    if c is None:
+                        continue
+                    ideas, trend_based = suggest_trending_topics(topic_count, c)
+                    if trend_based:
+                        break
+                if not ideas:
+                    ideas, trend_based = suggest_trending_topics(topic_count, None)
+                topics = [{"name": i.title, "reason": i.summary}
+                          for i in ideas]
+                topics_source = "trend" if trend_based else "fallback"
+                if not topics:
+                    return _json(self, {"error": "không gợi ý được chủ đề nào"},
+                                 400)
+            total = len(topics) * episodes
+            if total > 200:
+                return _json(self, {"error": f"đợt quá lớn ({total} kịch bản, "
+                                             f"tối đa 200) — giảm số chủ đề "
+                                             f"hoặc số tập"},
+                             400)
+            account = str(body.get("account") or "")
+            batch = create_batch(topics, episodes, minutes, account)
+            append_batch(batch)
+            thread = threading.Thread(target=_run_batch_job,
+                                      args=(batch["id"],), daemon=True)
+            _BATCH_THREADS[batch["id"]] = thread
+            thread.start()
+            return _json(self, {
+                "ok": True,
+                "batch_id": batch["id"],
+                "topics": topics,
+                "topics_source": topics_source,
+                "total_scripts": total,
+                "minutes": minutes,
+                "episodes_per_topic": episodes,
+            })
+
+        if path.startswith("/api/batches/") and path.endswith(
+                ("/pause", "/resume", "/cancel", "/restart")):
+            # Điều khiển đợt đang chạy: tạm dừng (kịch bản chưa bắt đầu sẽ
+            # chờ, kịch bản đang viết viết nốt rồi dừng), tiếp tục, dừng
+            # hẳn (không bắt đầu kịch bản mới nữa), chạy tiếp đợt đã
+            # dừng/lỗi/gián đoạn (chỉ làm nốt phần chưa xong).
+            action = path.rsplit("/", 1)[-1]
+            batch_id = unquote(path[len("/api/batches/"):-len(action) - 1])
+            _refresh_batch_statuses()
+            batch = next((b for b in load_batches()
+                          if b.get("id") == batch_id), None)
+            if not batch:
+                return _json(self, {"error": "không thấy đợt này"}, 404)
+            status = batch.get("status")
+            if action == "pause":
+                if status != "running":
+                    return _json(self, {"error": "chỉ tạm dừng được đợt đang chạy"},
+                                 400)
+                set_batch_flags(batch_id, paused=True)
+                return _json(self, {"ok": True, "status": "paused"})
+            if action == "resume":
+                if status != "paused":
+                    return _json(self, {"error": "chỉ tiếp tục được đợt đang tạm dừng"},
+                                 400)
+                set_batch_flags(batch_id, paused=False)
+                return _json(self, {"ok": True, "status": "running"})
+            if action == "cancel":
+                if status not in ("running", "paused"):
+                    return _json(self, {"error": "đợt này đã kết thúc, không dừng được"},
+                                 400)
+                set_batch_flags(batch_id, cancelled=True, paused=False)
+                return _json(self, {"ok": True, "status": "cancelled"})
+            # restart: chỉ khi không còn thread nào đang chạy đợt này.
+            t = _BATCH_THREADS.get(batch_id)
+            if t is not None and t.is_alive():
+                return _json(self, {"error": "đợt này đang chạy rồi"}, 400)
+            if status not in ("interrupted", "failed", "partial", "cancelled"):
+                return _json(self, {"error": "chỉ chạy tiếp được đợt đã dừng/lỗi/gián đoạn"},
+                             400)
+            prepare_restart(batch)
+            replace_batch(batch)
+            thread = threading.Thread(target=_run_batch_job,
+                                      args=(batch_id,), daemon=True)
+            _BATCH_THREADS[batch_id] = thread
+            thread.start()
+            return _json(self, {"ok": True, "status": "running"})
+
+        if path == "/api/results/download-zip":
+            # Nén các video đã chọn (final.mp4 + lời dẫn txt + phụ đề nếu
+            # có) thành 1 file zip trong cache/ rồi trả link tải.
+            body = _read_json(self)
+            projects = body.get("projects") or []
+            # Dọn zip cũ hơn 7 ngày để cache không phình mãi.
+            try:
+                CACHE_DIR.mkdir(parents=True, exist_ok=True)
+                now = time.time()
+                for old in CACHE_DIR.glob("studio-download-*.zip"):
+                    try:
+                        if now - old.stat().st_mtime > 7 * 86400:
+                            old.unlink()
+                    except OSError:
+                        pass
+            except OSError:
+                pass
+            try:
+                zip_path, n_projects, n_files = _build_results_zip(
+                    projects, CACHE_DIR)
+            except ValueError as e:
+                return _json(self, {"error": str(e)}, 400)
+            return _json(self, {
+                "ok": True,
+                "download_url": f"/files-cache/{zip_path.name}",
+                "projects": n_projects,
+                "files": n_files,
+                "size": zip_path.stat().st_size,
+            })
+
         if path == "/api/build":
             body = _read_json(self)
             script = body.get("script") or ""
@@ -1041,13 +1583,42 @@ class StudioHandler(BaseHTTPRequestHandler):
             return _json(self, {"error": "không có tài khoản này"}, 404)
         if path.startswith("/api/scripts/"):
             name = unquote(path[len("/api/scripts/"):])
+            for suffix in (".yaml", ".yml", ".md"):
+                if name.endswith(suffix):
+                    name = name[: -len(suffix)]
+                    break
             if not SAFE_NAME_RE.match(name):
                 return _json(self, {"error": "tên không hợp lệ"}, 400)
-            target = SCRIPTS_DIR / f"{name}.yaml"
-            if target.exists():
-                target.unlink()
-                return _json(self, {"ok": True})
-            return _json(self, {"error": "không thấy kịch bản này"}, 404)
+            target = None
+            for suffix in (".yaml", ".yml"):
+                cand = SCRIPTS_DIR / f"{name}{suffix}"
+                if cand.exists():
+                    target = cand
+                    break
+            if target is None:
+                return _json(self, {"error": "không thấy kịch bản này"}, 404)
+            target.unlink()
+            # Xóa file kèm theo cùng tên (prompts đã viết, lời dẫn đã xuất)
+            # và gỡ kịch bản khỏi các đợt hàng loạt để khỏi hiển thị rác.
+            for sibling in (SCRIPTS_DIR / f"{name}.prompts.yaml",
+                            SCRIPTS_DIR / f"{name}-loi-dan.txt"):
+                try:
+                    if sibling.exists():
+                        sibling.unlink()
+                except OSError:
+                    pass
+            remove_script_from_batches(f"scripts/{name}.yaml")
+            remove_script_from_batches(f"scripts/{name}.yml")
+            return _json(self, {"ok": True})
+        if path.startswith("/api/outputs/"):
+            name = unquote(path[len("/api/outputs/"):])
+            if not SAFE_NAME_RE.match(name):
+                return _json(self, {"error": "tên không hợp lệ"}, 400)
+            target = _safe_rel_path(DEFAULT_OUTPUT_DIR, name)
+            if not target or not target.is_dir():
+                return _json(self, {"error": "không thấy video này"}, 404)
+            shutil.rmtree(target)
+            return _json(self, {"ok": True})
         return _json(self, {"error": "not found"}, 404)
 
 

@@ -475,6 +475,57 @@ def suggest_topics(direction: str, keyword: str = "", count: int = 10,
 
 
 # ---------------------------------------------------------------------------
+# Chủ đề theo xu hướng tìm kiếm thật (cho sản xuất hàng loạt)
+# ---------------------------------------------------------------------------
+# Khác với suggest_topics (brainstorm tự do), đây là phân tích nhu cầu:
+# Muse phải dựa vào tín hiệu nhu cầu khán giả đang tìm/xem (câu hỏi được
+# tìm nhiều, dạng video triệu view, chủ đề đang hot theo mùa, loài vật
+# đang được nhắc nhiều), xếp hạng theo độ hút, và nêu rõ lý do từng chủ
+# đề — không bịa chủ đề vu vơ. Lưu ý trung thực: đây là phân tích từ kiến
+# thức của Muse về hành vi khán giả, không phải số liệu live từ Google
+# Trends (gateway không có feed đó); UI phải ghi rõ nguồn khi trend_based
+# là True, và ghi rõ "list mẫu" khi rơi về fallback.
+TREND_RESEARCH_INSTRUCTION = (
+    "You are a YouTube wildlife-documentary trend analyst. Do NOT invent "
+    "random topics. Analyze what audiences are ACTUALLY searching for and "
+    "watching right now in wildlife / animal documentary content: "
+    "frequently searched animal questions, million-view video formats, "
+    "animals and stories trending this season, species that keep appearing "
+    "in viral nature clips, and evergreen topics with durable search "
+    "demand. Rank {count} topics by audience demand, strongest first. "
+    "Each topic needs a Vietnamese title and a summary that states the "
+    "DEMAND SIGNAL (why people search/watch this: the question they ask, "
+    "the viral format it matches, or the seasonal reason), not just a "
+    "description of the animal. "
+    "Reply with ONLY a JSON array, one object per topic in order, like: "
+    '[{"title": "Tieu de tieng Viet", "summary": "Ly do nhu cau: ..."}]. '
+    "No markdown fences, no extra commentary."
+)
+
+
+def suggest_trending_topics(count: int, client=None,
+                            timeout: float = 240.0) -> tuple[list[TopicIdea], bool]:
+    """Gợi ý chủ đề theo xu hướng tìm kiếm, kèm cờ trend_based.
+
+    Có ``client`` thì nhờ Muse phân tích xu hướng rồi parse; thành công
+    thì trả (ideas, True). Không có client, Muse lỗi, hoặc parse không
+    được gì thì rơi về suggest_topics tĩnh và trả (ideas, False) để UI
+    ghi rõ đây là list mẫu chứ không phải xu hướng. Không bao giờ crash.
+    """
+    count = max(1, min(20, int(count or 1)))
+    if client is not None:
+        instruction = TREND_RESEARCH_INSTRUCTION.replace("{count}", str(count))
+        try:
+            reply = ask_muse_text(client, instruction, timeout=timeout)
+            ideas = parse_topic_reply(reply)
+            if ideas:
+                return ideas[:count], True
+        except Exception:
+            pass  # rơi về list tĩnh bên dưới
+    return suggest_topics("documentary", count=count), False
+
+
+# ---------------------------------------------------------------------------
 # Viết kịch bản hoàn chỉnh từ chủ đề
 # ---------------------------------------------------------------------------
 
@@ -640,3 +691,94 @@ def write_script(topic: str, kind: str = "documentary", scene_count: int | None 
             "không dùng khung xương template)")
     # Chế độ tự quyết mà không có client: khung xương dài mặc định 20 cảnh.
     return _skeleton_script(topic, kind, 20 if auto else scene_count, dur)
+
+
+# ---------------------------------------------------------------------------
+# Rà soát & sửa kịch bản (người dùng đọc thấy cần bổ sung / phần chưa tốt)
+# ---------------------------------------------------------------------------
+# Muse đọc lại toàn bộ kịch bản, sửa phần chưa tốt theo đúng luật phim
+# tài liệu, đồng thời áp dụng hướng dẫn bổ sung của người dùng (vd: thêm
+# chi tiết vào cảnh 3). Nguyên tắc SÁT BẢN GỐC: chỉ sửa tối thiểu những
+# chỗ yếu, giữ nguyên cảnh tốt, không đổi chủ đề/cốt truyện/số cảnh trừ
+# khi hướng dẫn của người dùng yêu cầu. Trả về YAML sửa + list thay đổi
+# để người dùng xem rồi mới bấm Lưu (server KHÔNG tự lưu đè).
+SCRIPT_REVIEW_INSTRUCTION = (
+    "You are an expert wildlife-documentary script editor. Review the "
+    "script below and return an IMPROVED version plus a change list. "
+    "Check these documentary rules: scene 1 opens with a contrast + "
+    "numbers hook; every scene has one survival mechanism + one number; "
+    "narration fits its duration (about 20 words per 10 seconds); every "
+    "visual is one concrete, filmable shot in English; the ending is a "
+    "thesis line that reverses intuition; no duplicated scenes, numbers, "
+    "or lines. "
+    "User's extra instruction (may be empty, apply it FIRST, e.g. add a "
+    "detail to a scene): {user_instruction}. "
+    "IMPORTANT — stay faithful to the original script: make the MINIMAL "
+    "changes needed. Fix only weak scenes and apply the user's "
+    "instruction; keep good scenes unchanged. Do not change the topic, "
+    "the story arc, or the number of scenes unless the user's instruction "
+    "explicitly asks for it. Do not invent a different script. "
+    "Reply in exactly this format:\n"
+    "```yaml\n"
+    "<the full improved script YAML, same format as the input>\n"
+    "```\n"
+    "CHANGES:\n"
+    "- s03: <what changed and why>\n"
+    "- s07: <what changed and why>\n"
+    "(one line per changed scene; if nothing needed changing, write "
+    "'- none: script already good' and return the original YAML unchanged.)\n"
+    "Script to review:\n"
+    "```yaml\n"
+    "{script_yaml}\n"
+    "```\n"
+)
+
+
+def _parse_changes(reply: str) -> list[str]:
+    """Lấy list thay đổi sau dòng 'CHANGES:' (mỗi dòng bắt đầu '- ')."""
+    out = []
+    in_changes = False
+    for line in reply.splitlines():
+        s = line.strip()
+        if s.upper().startswith("CHANGES:"):
+            in_changes = True
+            continue
+        if in_changes:
+            if s.startswith("- ") and len(s) > 2:
+                out.append(s[2:].strip())
+            elif s.startswith("```"):
+                break
+    return out
+
+
+def review_script(yaml_text: str, client, user_instruction: str = "",
+                  timeout: float = 240.0) -> tuple[str, list[str], Script]:
+    """Muse đọc lại kịch bản, sửa phần chưa tốt, giữ sát bản gốc.
+
+    Trả (fixed_yaml_text, changes, fixed_script). Không có client ->
+    ValueError (rà soát bắt buộc cần Muse, không có fallback template).
+    YAML sửa xong không parse được hoặc validate lỗi -> ValueError
+    (editor giữ nguyên bản cũ, không lưu đè).
+    """
+    if client is None:
+        raise ValueError("Cần tài khoản Muse để rà soát kịch bản")
+    instruction = (SCRIPT_REVIEW_INSTRUCTION
+                   .replace("{user_instruction}",
+                            (user_instruction or "").strip() or "(none)")
+                   .replace("{script_yaml}", yaml_text.strip()))
+    try:
+        reply = ask_muse_text(client, instruction, timeout=timeout)
+    except Exception as e:
+        raise ValueError(f"Không rà soát được kịch bản: {e}") from e
+    try:
+        yaml_part, _ = _parse_script_yaml(reply)
+        script = _from_yaml(yaml_part)
+    except Exception as e:
+        raise ValueError(
+            f"Muse trả về bản sửa không đọc được, giữ nguyên bản cũ: {e}"
+        ) from e
+    errors = validate(script)
+    if errors:
+        raise ValueError(
+            f"Kịch bản sau khi sửa không hợp lệ, giữ nguyên bản cũ: {errors}")
+    return yaml_part, _parse_changes(reply), script

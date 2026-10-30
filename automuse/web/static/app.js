@@ -24,6 +24,8 @@ $$(".tab").forEach((btn) => {
     $("#tab-" + btn.dataset.tab).classList.add("active");
     if (btn.dataset.tab === "outputs") loadOutputs();
     if (btn.dataset.tab === "build") loadJobs();
+    if (btn.dataset.tab === "scripts") loadScripts();
+    if (btn.dataset.tab === "create") loadBatches();
   });
 });
 function gotoTab(name) {
@@ -148,21 +150,98 @@ $("#btn-notify-test").addEventListener("click", async () => {
 // ---------------- scripts ----------------
 // Tool chỉ làm phim tài liệu: chỉ liệt kê kịch bản documentary (kèm file
 // lỗi chưa xác định được kind, để người dùng vẫn thấy và sửa được).
+// Danh sách gom theo chủ đề: kịch bản thuộc đợt hàng loạt nào thì nằm
+// dưới chủ đề đó (kèm tiến độ video từng kịch bản); còn lại vào nhóm
+// "Kịch bản khác".
 let currentScriptPath = null;
+function progressLabel(p) {
+  if (!p) return "⏳ Chưa dựng";
+  if (p.status === "done") return "✅ Đã dựng xong";
+  if (p.status === "building") return `🎬 ${p.pct}% (${p.clips}/${p.scenes} cảnh)`;
+  return "⏳ Chưa dựng";
+}
+function scriptRow(s) {
+  const p = s.progress;
+  const bar = p && p.status !== "none"
+    ? `<div class="progress"><div style="width:${p.pct}%"></div></div>` : "";
+  return `<li data-path="${esc(s.path)}" class="${s.path === currentScriptPath ? "selected" : ""}">
+    <span><b>${esc(s.name)}</b> <span class="meta">${esc(s.source)} · ${esc(s.kind)} · ${s.scenes} cảnh</span>
+    <span class="meta">${progressLabel(p)}${p && p.output_path ? ` · 📁 ${esc(p.output_path)}` : ""}</span></span>
+    <span>
+      <button class="btn small" data-open-script="${esc(s.path)}">Mở</button>
+      <button class="btn small" data-build-script="${esc(s.path)}">▶ Video</button>
+      <button class="btn small" data-del-script="${esc(s.name)}">🗑</button>
+    </span>
+    ${bar}
+  </li>`;
+}
 async function loadScripts() {
   const all = await api("/api/scripts");
   const list = all.filter((s) => s.kind === "documentary" || s.kind === "?");
-  $("#scripts-list").innerHTML = list.map((s) => `
-    <li data-path="${esc(s.path)}" class="${s.path === currentScriptPath ? "selected" : ""}">
-      <span><b>${esc(s.name)}</b> <span class="meta">${esc(s.source)} · ${esc(s.kind)} · ${s.scenes} cảnh</span></span>
-      <span class="meta">${esc(s.file)}</span>
-    </li>`).join("");
-  $$("#scripts-list li").forEach((li) => li.addEventListener("click", () => openScript(li.dataset.path)));
+  let batches = [];
+  try { batches = await api("/api/batches"); } catch (e) { batches = []; }
+  // Map đường dẫn kịch bản -> chủ đề của đợt (ưu tiên đợt mới nhất).
+  const topicOf = new Map();
+  const batchTopicInfo = new Map(); // topic -> {done, total}
+  for (const b of batches) {
+    for (const t of b.topics || []) {
+      let done = 0;
+      for (const s of t.scripts || []) {
+        if (s.file) topicOf.set(s.file, t.name);
+        if (s.status === "done") done++;
+      }
+      batchTopicInfo.set(t.name, { done, total: (t.scripts || []).length });
+    }
+  }
+  const groups = new Map(); // topic -> [scripts]
+  const others = [];
+  for (const s of list) {
+    const topic = topicOf.get(s.path) || s.topic || "";
+    if (topic) {
+      if (!groups.has(topic)) groups.set(topic, []);
+      groups.get(topic).push(s);
+    } else {
+      others.push(s);
+    }
+  }
+  let html = "";
+  for (const [topic, scripts] of groups) {
+    const info = batchTopicInfo.get(topic);
+    const head = info ? `📁 ${esc(topic)} — ${info.done}/${info.total} kịch bản` : `📁 ${esc(topic)}`;
+    html += `<div class="script-group"><h3>${head}</h3><ul class="list">${scripts.map(scriptRow).join("")}</ul></div>`;
+  }
+  if (others.length) {
+    html += `<div class="script-group"><h3>📄 Kịch bản khác</h3><ul class="list">${others.map(scriptRow).join("")}</ul></div>`;
+  }
+  $("#scripts-list").innerHTML = html || "Chưa có kịch bản nào.";
   const sel = $("#build-script-select");
   const prev = sel.value;
   sel.innerHTML = list.map((s) => `<option value="${esc(s.path)}">${esc(s.name)} (${esc(s.source)} · ${s.scenes} cảnh)</option>`).join("");
   if (prev) sel.value = prev;
 }
+$("#scripts-list").addEventListener("click", async (e) => {
+  const del = e.target.closest("[data-del-script]");
+  if (del) {
+    e.stopPropagation();
+    if (!confirm(`Xóa kịch bản "${del.dataset.delScript}"? (xóa cả file prompts + lời dẫn kèm theo)`)) return;
+    try {
+      await api(`/api/scripts/${encodeURIComponent(del.dataset.delScript)}`, { method: "DELETE" });
+      loadScripts();
+    } catch (err) { alert(err.message); }
+    return;
+  }
+  const build = e.target.closest("[data-build-script]");
+  if (build) {
+    e.stopPropagation();
+    gotoTab("build");
+    $("#build-script-select").value = build.dataset.buildScript;
+    return;
+  }
+  const open = e.target.closest("[data-open-script]");
+  if (open) { openScript(open.dataset.openScript); return; }
+  const li = e.target.closest("li[data-path]");
+  if (li) openScript(li.dataset.path);
+});
 async function openScript(path) {
   const data = await api(`/api/scripts/content?path=${encodeURIComponent(path)}`);
   currentScriptPath = path;
@@ -219,6 +298,30 @@ $("#btn-build-script").addEventListener("click", () => {
   if (!currentScriptPath) return alert("Chọn kịch bản trước đã.");
   gotoTab("build");
   $("#build-script-select").value = currentScriptPath;
+});
+$("#btn-review-script").addEventListener("click", async () => {
+  const content = $("#script-editor").value;
+  const msg = $("#review-msg");
+  if (!content.trim()) return alert("Chưa có nội dung kịch bản để rà soát.");
+  const instruction = $("#script-review-instruction").value.trim();
+  msg.className = "msg";
+  msg.textContent = "Muse đang đọc lại kịch bản, sửa phần chưa tốt và bổ sung theo yêu cầu… (có thể mất 1–2 phút)";
+  $("#review-changes").innerHTML = "";
+  try {
+    const r = await api("/api/scripts/review", {
+      method: "POST",
+      body: JSON.stringify({ content, instruction }),
+    });
+    $("#script-editor").value = r.fixed_content;
+    const items = r.changes.length
+      ? r.changes.map((c) => `<li>${esc(c)}</li>`).join("")
+      : "<li>Không cần sửa gì — kịch bản đã tốt.</li>";
+    $("#review-changes").innerHTML = `<p><b>Đã rà soát (${r.scenes_before} → ${r.scenes_after} cảnh):</b></p><ul class="list">${items}</ul><p class="hint">Bản sửa đã nạp vào khung soạn — bạn xem lại rồi bấm Lưu để lưu.</p>`;
+    msg.className = "msg ok";
+    msg.textContent = `Đã rà soát xong: ${r.changes.length} chỗ sửa.`;
+  } catch (e) {
+    msg.className = "msg err"; msg.textContent = e.message;
+  }
 });
 
 // ---------------- build ----------------
@@ -306,6 +409,127 @@ $("#btn-auto-create").addEventListener("click", async () => {
     msg.className = "msg err"; msg.textContent = e.message;
   }
 });
+
+// ---------------- batch: sản xuất hàng loạt theo chủ đề ----------------
+let batchPollTimer = null;
+function batchStatusLabel(s) {
+  return { running: "⏳ Đang chạy", paused: "⏸ Tạm dừng", done: "✅ Xong",
+           partial: "⚠️ Xong 1 phần (có lỗi)", failed: "❌ Lỗi",
+           cancelled: "⏹ Đã dừng hẳn",
+           interrupted: "⏸ Gián đoạn (server restart/crash)" }[s] || s;
+}
+function renderBatches(batches) {
+  if (!batches.length) {
+    $("#batches-list").innerHTML = "Chưa có đợt nào. Nhập số chủ đề/số tập/số phút rồi bấm “Tạo hàng loạt kịch bản”.";
+    return;
+  }
+  $("#batches-list").innerHTML = batches.map((b) => {
+    const p = b.progress || { done: 0, failed: 0, total: 0, pct: 0 };
+    const topicsHtml = (b.topics || []).map((t) => {
+      const done = (t.scripts || []).filter((s) => s.status === "done").length;
+      const rows = (t.scripts || []).map((s) => {
+        const icon = s.status === "done" ? "✅" : s.status === "failed" ? "❌" : s.status === "writing" ? "✍️" : s.status === "cancelled" ? "⏹" : "⏳";
+        const detail = s.status === "done" ? `${esc(s.title)} (${s.scenes} cảnh)`
+          : s.status === "failed" ? `Lỗi: ${esc(s.error)}` : s.status === "writing" ? "đang viết…" : s.status === "cancelled" ? "đã dừng" : "chờ viết";
+        return `<li>${icon} Tập ${s.index}: ${detail}</li>`;
+      }).join("");
+      return `<div class="batch-topic"><b>📁 ${esc(t.name)}</b> — ${done}/${(t.scripts || []).length} kịch bản
+        ${t.reason ? `<span class="meta"> · ${esc(t.reason)}</span>` : ""}
+        <ul class="list">${rows}</ul></div>`;
+    }).join("");
+    return `<div class="card batch-card">
+      <div class="row between"><strong>${esc(b.id)}</strong>
+        <span class="badge">${batchStatusLabel(b.status)}</span></div>
+      <div class="meta">${esc(b.created_at)} · ${b.episodes_per_topic} tập/chủ đề · ${b.minutes} phút/tập</div>
+      <div class="progress"><div style="width:${p.pct}%"></div></div>
+      <div class="meta">${p.done}/${p.total} kịch bản xong${p.failed ? ` · ${p.failed} lỗi` : ""}</div>
+      <div class="row">
+        ${b.status === "running" ? `<button class="btn small batch-ctrl" data-id="${esc(b.id)}" data-action="pause">⏸ Tạm dừng</button><button class="btn small batch-ctrl" data-id="${esc(b.id)}" data-action="cancel">⏹ Dừng hẳn</button>` : ""}
+        ${b.status === "paused" ? `<button class="btn small batch-ctrl" data-id="${esc(b.id)}" data-action="resume">▶ Tiếp tục</button><button class="btn small batch-ctrl" data-id="${esc(b.id)}" data-action="cancel">⏹ Dừng hẳn</button>` : ""}
+        ${["interrupted", "failed", "partial", "cancelled"].includes(b.status) ? `<button class="btn small batch-ctrl" data-id="${esc(b.id)}" data-action="restart">↻ Chạy tiếp phần còn lại</button>` : ""}
+      </div>
+      ${b.status === "paused" ? `<p class="hint">Đợt đang tạm dừng: kịch bản chưa bắt đầu sẽ chờ, kịch bản đang viết viết nốt rồi dừng. Bấm “Tiếp tục” để chạy tiếp.</p>` : ""}
+      ${b.status === "cancelled" ? `<p class="hint">Đợt đã dừng hẳn: không bắt đầu kịch bản mới nữa. Kịch bản đã xong vẫn giữ nguyên, bấm “Chạy tiếp” nếu muốn làm nốt.</p>` : ""}
+      ${b.status === "interrupted" ? `<p class="hint">Đợt bị gián đoạn (server restart/crash): bấm “Chạy tiếp” để làm nốt phần chưa xong, kịch bản đã xong không viết lại.</p>` : ""}
+      ${topicsHtml}
+    </div>`;
+  }).join("");
+}
+async function loadBatches() {
+  try {
+    renderBatches(await api("/api/batches"));
+  } catch (e) {
+    $("#batches-list").innerHTML = `Không tải được đợt: ${esc(e.message)}`;
+  }
+}
+function startBatchPolling() {
+  if (batchPollTimer) return;
+  batchPollTimer = setInterval(async () => {
+    try {
+      const batches = await api("/api/batches");
+      renderBatches(batches);
+      if (!batches.some((b) => b.status === "running" || b.status === "paused")) {
+        clearInterval(batchPollTimer); batchPollTimer = null;
+        loadScripts();
+      }
+    } catch (e) { /* đợt sau sẽ thử lại */ }
+  }, 10000);
+}
+// Nút điều khiển đợt (tạm dừng / tiếp tục / dừng hẳn / chạy tiếp).
+document.addEventListener("click", async (e) => {
+  const btn = e.target.closest(".batch-ctrl");
+  if (!btn) return;
+  const action = btn.dataset.action;
+  if (action === "cancel" && !confirm("Dừng hẳn đợt này? Kịch bản đang viết sẽ viết nốt rồi dừng, kịch bản chưa bắt đầu sẽ không chạy nữa.")) return;
+  btn.disabled = true;
+  try {
+    await api(`/api/batches/${encodeURIComponent(btn.dataset.id)}/${action}`, { method: "POST" });
+    loadBatches();
+    if (action === "restart") startBatchPolling();
+  } catch (err) {
+    alert(err.message);
+    btn.disabled = false;
+  }
+});
+$("#btn-refresh-batches").addEventListener("click", loadBatches);
+$("#btn-batch-trending").addEventListener("click", async () => {
+  const msg = $("#batch-msg");
+  const count = parseInt($("#batch-topic-count").value, 10) || 5;
+  msg.className = "msg"; msg.textContent = "Muse đang phân tích xu hướng tìm kiếm… (có thể mất 1–2 phút)";
+  try {
+    const r = await api("/api/trending-topics", { method: "POST", body: JSON.stringify({ count }) });
+    $("#batch-topics").value = r.topics.map((t) => t.title).join("\n");
+    $("#batch-topics-preview").innerHTML = (r.trend_based
+      ? "<p class='hint'>Chủ đề theo phân tích xu hướng — lý do từng chủ đề (bạn sửa lại trong ô trước khi tạo):</p>"
+      : "<p class='hint'>⚠️ Không phân tích được xu hướng (không có acc hoặc gateway lỗi) — đây là list mẫu, bạn sửa lại trước khi tạo.</p>")
+      + r.topics.map((t) => `<p><b>${esc(t.title)}</b> — ${esc(t.reason)}</p>`).join("");
+    msg.className = "msg ok"; msg.textContent = `Đã gợi ý ${r.topics.length} chủ đề.`;
+  } catch (e) {
+    msg.className = "msg err"; msg.textContent = e.message;
+  }
+});
+$("#btn-batch-create").addEventListener("click", async () => {
+  const msg = $("#batch-msg");
+  const topics = $("#batch-topics").value.split("\n").map((s) => s.trim()).filter(Boolean);
+  const body = {
+    topics,
+    topic_count: parseInt($("#batch-topic-count").value, 10) || 2,
+    episodes_per_topic: parseInt($("#batch-episodes").value, 10) || 10,
+    minutes: parseInt($("#batch-minutes").value, 10) || 8,
+  };
+  msg.className = "msg"; msg.textContent = "Đang tạo đợt…";
+  try {
+    const r = await api("/api/batch-create", { method: "POST", body: JSON.stringify(body) });
+    msg.className = "msg ok";
+    const src = r.topics_source === "trend" ? " (chủ đề theo xu hướng)"
+      : r.topics_source === "fallback" ? " (chủ đề từ list mẫu — không phân tích được xu hướng)" : "";
+    msg.textContent = `Đã tạo đợt ${r.batch_id}: ${r.total_scripts} kịch bản (${r.topics.length} chủ đề × ${r.episodes_per_topic} tập, ${r.minutes} phút/tập)${src}. Đợt chạy nền — xem tiến độ bên dưới; mỗi kịch bản xong sẽ báo qua Telegram (nếu đã cấu hình).`;
+    loadBatches();
+    startBatchPolling();
+  } catch (e) {
+    msg.className = "msg err"; msg.textContent = e.message;
+  }
+});
 $("#btn-suggest-topics").addEventListener("click", async () => {
   const msg = $("#create-msg");
   const box = $("#topics-list");
@@ -383,15 +607,54 @@ function outputCard(o) {
     <div class="body">
       <h3>${esc(m.title || o.project)}</h3>
       <div class="meta">${esc(o.project)} · ${scenes} cảnh · ${dur} · ${(o.size / 1048576).toFixed(1)} MB
-        ${m.mock ? "· mock" : ""}</div>
+        ${m.mock ? "· mock" : ""}
+        ${o.script_name ? `· kịch bản: ${esc(o.script_name)}` : ""}</div>
+      <div class="meta">📁 ${esc(o.output_path || "")}</div>
       <div class="actions">
+        <label><input type="checkbox" class="output-check" data-project="${esc(o.project)}"> Chọn</label>
         ${o.final ? `<a href="${esc(o.final)}" download>⬇ Tải video</a>` : ""}
         ${o.narration_txt ? `<a href="${esc(o.narration_txt)}" download>⬇ Lời dẫn .txt</a>` : ""}
         ${o.subtitles ? `<a href="${esc(o.subtitles)}" download>⬇ Phụ đề .srt</a>` : ""}
+        <button class="btn small" data-del-output="${esc(o.project)}">🗑 Xóa video</button>
       </div>
     </div>
   </div>`;
 }
+document.addEventListener("click", (e) => {
+  const del = e.target.closest("[data-del-output]");
+  if (del) {
+    e.preventDefault();
+    if (!confirm(`Xóa video "${del.dataset.delOutput}"? (xóa cả thư mục output, không khôi phục được)`)) return;
+    api(`/api/outputs/${encodeURIComponent(del.dataset.delOutput)}`, { method: "DELETE" })
+      .then(() => loadOutputs())
+      .catch((err) => alert(err.message));
+    return;
+  }
+});
+$("#btn-select-all-outputs").addEventListener("click", () => {
+  const boxes = $$(".output-check");
+  const allChecked = boxes.length && [...boxes].every((b) => b.checked);
+  boxes.forEach((b) => { b.checked = !allChecked; });
+});
+$("#btn-download-zip").addEventListener("click", async () => {
+  const msg = $("#outputs-msg");
+  const projects = [...$$(".output-check:checked")].map((b) => b.dataset.project);
+  if (!projects.length) {
+    msg.className = "msg err"; msg.textContent = "Chưa tích chọn video nào.";
+    return;
+  }
+  msg.className = "msg"; msg.textContent = `Đang nén ${projects.length} video…`;
+  try {
+    const r = await api("/api/results/download-zip", { method: "POST", body: JSON.stringify({ projects }) });
+    const a = document.createElement("a");
+    a.href = r.download_url; a.download = "";
+    document.body.appendChild(a); a.click(); a.remove();
+    msg.className = "msg ok";
+    msg.textContent = `Đã nén ${r.projects} video (${r.files} file, ${(r.size / 1048576).toFixed(1)} MB) — trình duyệt đang tải xuống.`;
+  } catch (e) {
+    msg.className = "msg err"; msg.textContent = e.message;
+  }
+});
 document.addEventListener("click", (e) => {
   const poster = e.target.closest(".poster");
   if (!poster || !poster.dataset.final) return;
