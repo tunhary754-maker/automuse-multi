@@ -92,6 +92,16 @@ class GatewayError(MuseError):
     """Lỗi ở tầng gateway (handshake / RPC / stream)."""
 
 
+class NoVideoError(MuseError):
+    """Model trả lời xong (message_done) nhưng không đưa ra video nào.
+
+    KHÁC với lỗi kết nối: stream + history đều đọc được, chỉ là không
+    có delta.presentation. Thường do nội dung prompt bị từ chối (bộ lọc
+    an toàn) — không được tính là acc hỏng, không báo "không kết nối
+    được", mà phải xử lý ở tầng prompt (viết lại cho nhẹ nhàng).
+    """
+
+
 # --------------------------------------------------------------------------
 # Minimal protobuf encode/decode (varint + length-delimited only)
 # --------------------------------------------------------------------------
@@ -1063,12 +1073,17 @@ class GatewayClient:
             try:
                 return self.retrieve_video_via_history(
                     t_send_ms, dest, timeout=history_timeout)
-            except GatewayError as e:
-                raise GatewayError(
+            except NoVideoError as e:
+                raise NoVideoError(
                     "chat.stream xong nhưng không thấy link video trong "
                     f"records ({len(records)} record(s): {summary}); "
                     f"tìm trong chat.history cũng không thấy: {e}"
                 ) from None
+            except GatewayError:
+                # Lỗi transport thật trong lúc quét history (rpc hỏng,
+                # ...) — vẫn là lỗi kết nối, giữ nguyên loại để pipeline
+                # báo đúng, không gói nhầm thành "không thấy video".
+                raise
         return self._download_video(url, dest)
 
     def retrieve_video_via_history(self, since_ms: int, dest: Path,
@@ -1080,7 +1095,7 @@ class GatewayClient:
         từ `since_ms` trở đi (video nằm ở
         payload.data.videos[].variants.original, hoặc .path dạng
         sandbox://...), rồi tải bằng fs.raw qua _download_video.
-        Raises GatewayError nếu hết `timeout` vẫn chưa thấy.
+        Raises NoVideoError nếu hết `timeout` vẫn chưa thấy.
         """
         deadline = time.time() + timeout
         while True:
@@ -1091,7 +1106,7 @@ class GatewayClient:
             if url:
                 return self._download_video(url, Path(dest))
             if time.time() >= deadline:
-                raise GatewayError(
+                raise NoVideoError(
                     "Không thấy video trong chat.history sau "
                     f"{timeout:.0f}s (đã qua delta.message_done mà không có "
                     "delta.presentation)"

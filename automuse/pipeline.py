@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 import time
 from pathlib import Path
 
@@ -101,6 +102,54 @@ def _describe_ineligible(pool, tracker, settings) -> str:
     return "Không còn acc nào dùng được: " + "; ".join(parts) + "."
 
 
+_REFUSAL_HEADS = ("i ", "sorry", "as an ai", "i'm ", "i cannot", "i can't",
+                  "tôi ", "xin lỗi", "không thể")
+
+
+def _soften_visual(client, scene) -> str | None:
+    """Nhờ Muse viết lại visual cho nhẹ nhàng khi cảnh bị từ chối video.
+
+    Chỉ dùng cho lần thử lại trong cùng một cảnh — KHÔNG ghi đè visual
+    gốc trong kịch bản (kịch bản là tài sản sáng tạo của user, và lời dẫn
+    vẫn giữ nguyên sự thật). Trả None nếu không viết lại được (lỗi text
+    call, trả về y nguyên, hoặc trả về câu từ chối/giải thích thay vì
+    prompt) — caller khi đó xử lý lỗi gốc như bình thường.
+    """
+    from .prompting import ask_muse_text
+
+    instruction = (
+        "Rewrite this video generation prompt so it passes a content "
+        "safety filter. Keep the same animals, setting, and general "
+        "behavior, but remove any explicit sexual, violent, or graphic "
+        "detail; describe only filmable, non-explicit behavior "
+        "(courtship, closeness, grooming, playing, caring for young). "
+        "Return ONLY the rewritten prompt: no explanation, no quotes, "
+        "no code fence.\n"
+        f"Scene title: {scene.title}\n"
+        f"Original prompt: {scene.visual}"
+    )
+    try:
+        out = ask_muse_text(client, instruction, timeout=120)
+    except Exception:
+        return None
+    out = (out or "").strip()
+    if out.startswith("```"):
+        out = out[3:].strip()
+        if "\n" in out:
+            first, rest = out.split("\n", 1)
+            if first.strip().isalpha():
+                out = rest
+        if out.endswith("```"):
+            out = out[:-3]
+    out = " ".join(out.split())
+    if not out or out == scene.visual:
+        return None
+    low = out.lower()
+    if low.startswith(_REFUSAL_HEADS) or "cannot generate" in low[:80]:
+        return None
+    return out
+
+
 def generate_clips(
     script: Script,
     out_dir: Path,
@@ -113,6 +162,8 @@ def generate_clips(
     tracker: UsageTracker | None = None,
 ) -> tuple[list[Path], list[dict]]:
     """Sinh clip cho từng cảnh. Trả về (danh sách clip, thông tin từng cảnh)."""
+    from .gateway import NoVideoError
+
     tracker = tracker or UsageTracker()
     clips_dir = out_dir / "clips"
     clips_dir.mkdir(parents=True, exist_ok=True)
@@ -259,6 +310,10 @@ def generate_clips(
                 eligible_names = [a.name for a in eligible]
 
             failed_this_round: set[str] = set()
+            # Prompt đang dùng cho cảnh này: ban đầu là visual gốc, nếu
+            # model không trả video thì đổi sang bản làm nhẹ (1 lần).
+            prompt = scene.visual
+            softened = False
             for attempt in range(1, max_retries + 1):
                 account = (manager.pick(eligible_names,
                                         exclude=failed_this_round)
@@ -275,7 +330,7 @@ def generate_clips(
                 try:
                     tmp = clips_dir / f"{scene.id}.tmp.mp4"
                     client.generate_video(
-                        prompt=scene.visual,
+                        prompt=prompt,
                         aspect=script.aspect,
                         duration=max(1, math.ceil(target)),
                         reference_image=scene.reference_image or None,
@@ -297,6 +352,22 @@ def generate_clips(
                 except Exception as e:  # noqa: BLE001 - retry acc khác
                     last_error = str(e)
                     log(f"  ! Lỗi: {last_error}")
+                    if isinstance(e, NoVideoError) and not mock:
+                        # Model trả lời xong nhưng không đưa video (thường
+                        # do nội dung bị từ chối) — KHÔNG phải acc hỏng:
+                        # không tính lỗi acc, không loại acc khỏi lượt,
+                        # không báo "không kết nối được". Lần đầu thì nhờ
+                        # Muse viết lại prompt cho nhẹ nhàng rồi thử lại;
+                        # các lần sau vẫn dùng prompt (đã nhẹ) đó.
+                        if not softened:
+                            new_prompt = _soften_visual(client, scene)
+                            if new_prompt:
+                                prompt = new_prompt
+                                softened = True
+                                log(f"  ... {scene.id}: prompt đã làm nhẹ, "
+                                    f"thử lại: {prompt[:160]}")
+                        time.sleep(delay)
+                        continue
                     if account:
                         manager.mark_failure(account)
                         failed_this_round.add(account.name)
@@ -330,6 +401,8 @@ def generate_clips(
             if _wait_for_new_account(pool):
                 continue
             msg = f"{scene.id} thất bại sau {max_retries} lần: {last_error}"
+            if softened:
+                msg += " (đã thử prompt làm nhẹ)"
             if any(a.is_on_cooldown() for a in pool):
                 msg += ". " + _describe_ineligible(pool, tracker, settings)
             raise RuntimeError(msg)

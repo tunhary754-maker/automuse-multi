@@ -513,12 +513,13 @@ class TestGatewayClientLive(unittest.TestCase):
 
     def test_generate_video_no_video_anywhere_raises(self):
         # Không link trong subscribe lẫn history -> lỗi rõ ràng, không
-        # báo thành công giả.
+        # báo thành công giả. Loại lỗi là NoVideoError (không phải
+        # GatewayError) để pipeline phân biệt với lỗi kết nối.
         client, fake = self._client()
         fake.subscribe_video = False
         try:
             with tempfile.TemporaryDirectory() as d:
-                with self.assertRaises(gw.GatewayError) as cm:
+                with self.assertRaises(gw.NoVideoError) as cm:
                     client.generate_video(
                         "a lion at dawn", aspect="16:9", duration=8,
                         out_path=Path(d) / "s01.mp4", history_timeout=0.2)
