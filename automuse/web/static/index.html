@@ -157,24 +157,36 @@
   <!-- ============ SCRIPTS ============ -->
   <section id="tab-scripts" class="panel">
     <h2>Kịch bản phim tài liệu <small>YAML — visual tiếng Anh, lời thoại tiếng Việt</small></h2>
-    <div class="scripts-layout">
-      <div class="card">
-        <div class="row between">
-          <strong>Danh sách</strong>
-          <span>
-            <button class="btn small" id="btn-new-script">+ Kịch bản mới</button>
-            <button class="btn small" id="btn-template-doc">Mẫu tài liệu</button>
-          </span>
-        </div>
-        <div class="row">
-          <label class="grow">🔍 Lọc kịch bản
-            <input id="script-filter" placeholder="Gõ tên kịch bản để lọc...">
-          </label>
-        </div>
-        <ul class="list" id="scripts-list"></ul>
-        <p class="hint">Kịch bản gom theo chủ đề (đợt hàng loạt). Mỗi kịch bản hiện trạng thái video: chưa dựng / đang dựng (số cảnh đã có) / đã dựng xong, kèm nút xóa.</p>
+    <div class="card">
+      <div class="row between">
+        <strong>Danh sách</strong>
+        <span>
+          <button class="btn small" id="btn-new-script">+ Kịch bản mới</button>
+          <button class="btn small" id="btn-template-doc">Mẫu tài liệu</button>
+        </span>
       </div>
-      <div class="card editor">
+      <div class="table-toolbar">
+        <div class="pills" id="scripts-pills"></div>
+        <label class="grow">🔍 Tìm kiếm
+          <input id="scripts-search" placeholder="Tên, tiêu đề, chủ đề, nội dung…" autocomplete="off">
+        </label>
+        <label>Chủ đề
+          <select id="scripts-topic-filter"><option value="">Tất cả chủ đề</option></select>
+        </label>
+      </div>
+      <div class="bulk-bar">
+        <button class="btn small" id="btn-scripts-select-all">☑ Chọn tất cả</button>
+        <button class="btn small danger" id="btn-scripts-del-selected">🗑 Xóa đã chọn</button>
+        <button class="btn small primary" id="btn-scripts-build-selected">▶ Tạo video đã chọn</button>
+        <span class="msg" id="scripts-msg"></span>
+      </div>
+      <div class="table-scroll"><table class="data" id="scripts-table">
+        <thead><tr><th class="chk"><input type="checkbox" id="scripts-check-all"></th><th class="stt">STT</th><th>Tên &amp; nội dung</th><th>Chủ đề</th><th>Loại</th><th>Tài khoản</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
+        <tbody id="scripts-tbody"></tbody>
+      </table></div>
+      <p class="hint">Bấm vào một hàng để mở khung soạn bên dưới. Cột Tài khoản là acc đã viết kịch bản (chỉ có với kịch bản từ đợt hàng loạt). Nút “Tạo video đã chọn” xếp hàng các video vào tab Tạo video (chạy tuần tự, không cần chờ từng cái).</p>
+    </div>
+    <div class="card editor">
         <div class="row between">
           <strong id="editor-title">Chưa chọn kịch bản</strong>
           <span>
@@ -193,10 +205,9 @@
         <div id="review-changes"></div>
         <span class="msg" id="review-msg"></span>
         <textarea id="script-editor" rows="24" spellcheck="false"
-          placeholder="Chọn một kịch bản bên trái để xem/sửa, hoặc bấm + Kịch bản mới."></textarea>
+          placeholder="Chọn một kịch bản trong bảng phía trên để xem/sửa, hoặc bấm + Kịch bản mới."></textarea>
         <span class="msg" id="script-msg"></span>
       </div>
-    </div>
   </section>
 
   <!-- ============ BUILD ============ -->
@@ -231,27 +242,52 @@
       <pre id="job-log" class="log">Chưa có log. Bấm “Bắt đầu tạo video” để chạy.</pre>
     </div>
     <h3>Lịch sử chạy</h3>
-    <ul class="list" id="jobs-list"></ul>
+    <div class="card">
+      <div class="table-toolbar">
+        <div class="pills" id="jobs-pills"></div>
+        <label class="grow">🔍 Tìm kiếm
+          <input id="jobs-search" placeholder="Tên kịch bản, job id…" autocomplete="off">
+        </label>
+      </div>
+      <div class="bulk-bar">
+        <button class="btn small" id="btn-jobs-select-all">☑ Chọn tất cả</button>
+        <button class="btn small" id="btn-jobs-retry-selected">↻ Chạy lại đã chọn</button>
+        <button class="btn small danger" id="btn-jobs-del-selected">🗑 Xóa đã chọn</button>
+        <span class="msg" id="jobs-msg"></span>
+      </div>
+      <div class="table-scroll"><table class="data" id="jobs-table">
+        <thead><tr><th class="chk"><input type="checkbox" id="jobs-check-all"></th><th class="stt">STT</th><th>Tên &amp; nội dung</th><th>Loại</th><th>Tài khoản</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
+        <tbody id="jobs-tbody"></tbody>
+      </table></div>
+      <p class="hint">Job chỉ giữ trong phiên server hiện tại (restart server là mất danh sách). Job đang chờ có thể bấm Hủy để dừng hẳn; job đang chạy không dừng được. Nhiều job xếp hàng sẽ chạy tuần tự — cứ tạo tiếp, không cần chờ.</p>
+    </div>
   </section>
 
   <!-- ============ OUTPUTS ============ -->
   <section id="tab-outputs" class="panel">
     <h2>Kết quả <small>video đã dựng xong — xem trước, tải video và lời dẫn txt</small></h2>
-    <div class="row" style="margin-bottom:12px">
-      <label class="grow">Tìm kiếm
-        <input id="outputs-search" placeholder="Tên phim, project, tên kịch bản…" autocomplete="off">
-      </label>
-      <span class="meta" id="outputs-count-text" style="align-self:flex-end"></span>
-    </div>
-    <div class="row" style="margin-bottom:12px">
-      <button class="btn small" id="btn-select-all-outputs">☑ Chọn tất cả trang này</button>
-      <button class="btn small primary" id="btn-download-zip">⬇ Tải ZIP các video đã chọn</button>
-      <span class="msg" id="outputs-msg"></span>
-    </div>
-    <p class="hint">Mỗi thẻ hiện đường dẫn lưu trên máy (output/&lt;tên project&gt;). Tích chọn rồi bấm tải ZIP để tải hàng loạt (gồm video + lời dẫn txt + phụ đề nếu có). Nút 🗑 xóa cả thư mục video đó để tránh loạn.</p>
-    <div id="outputs-grid" class="outputs-grid"></div>
-    <div style="text-align:center;margin:16px 0">
-      <button class="btn" id="btn-more-outputs">Xem thêm</button>
+    <div class="card">
+      <div class="table-toolbar">
+        <div class="pills" id="outputs-pills"></div>
+        <label class="grow">🔍 Tìm kiếm
+          <input id="outputs-search" placeholder="Tên phim, project, tên kịch bản…" autocomplete="off">
+        </label>
+        <span class="meta" id="outputs-count-text" style="align-self:center"></span>
+      </div>
+      <div class="bulk-bar">
+        <button class="btn small" id="btn-select-all-outputs">☑ Chọn tất cả trang này</button>
+        <button class="btn small primary" id="btn-download-zip">⬇ Tải ZIP các video đã chọn</button>
+        <button class="btn small danger" id="btn-del-selected-outputs">🗑 Xóa đã chọn</button>
+        <span class="msg" id="outputs-msg"></span>
+      </div>
+      <p class="hint">Mỗi hàng hiện ảnh đại diện (nếu có), đường dẫn lưu trên máy (output/&lt;tên project&gt;). Tích chọn rồi bấm tải ZIP để tải hàng loạt (gồm video + lời dẫn txt + phụ đề nếu có). Nút 🗑 xóa cả thư mục video đó để tránh loạn.</p>
+      <div class="table-scroll"><table class="data" id="outputs-table">
+        <thead><tr><th class="chk"><input type="checkbox" id="outputs-check-all"></th><th class="stt">STT</th><th>Tên &amp; video</th><th>Loại</th><th>Tài khoản</th><th>Trạng thái</th><th>Thao tác</th></tr></thead>
+        <tbody id="outputs-tbody"></tbody>
+      </table></div>
+      <div style="text-align:center;margin:16px 0">
+        <button class="btn" id="btn-more-outputs">Xem thêm</button>
+      </div>
     </div>
   </section>
 </main>

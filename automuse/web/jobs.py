@@ -29,5 +29,11 @@ def get(job_id: str) -> dict | None:
     return _JOBS.get(job_id)
 
 
+def remove(job_id: str) -> bool:
+    """Xóa job khỏi danh sách (chỉ gọi khi job không chạy — job đang
+    chạy mà xóa khỏi dict thì thread vẫn chạy nền nhưng mất dấu)."""
+    return _JOBS.pop(job_id, None) is not None
+
+
 def list_all() -> list[dict]:
     return sorted(_JOBS.values(), key=lambda j: j["created_at"], reverse=True)

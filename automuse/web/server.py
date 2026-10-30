@@ -205,8 +205,10 @@ def _scripts_catalog() -> list[dict]:
                 scenes = len(script.scenes)
                 kind = script.kind
                 title = script.title
+                snippet = (script.scenes[0].narration
+                           if script.scenes else "")
             except Exception:  # noqa: BLE001 - file lỗi thì vẫn liệt kê
-                scenes, kind, title = 0, "?", ""
+                scenes, kind, title, snippet = 0, "?", "", ""
             rel = str(p.relative_to(REPO_ROOT))
             # Chủ đề: field "topic" trong YAML (kịch bản từ đợt hàng loạt
             # ghi sẵn); file lỗi hoặc không có topic -> "".
@@ -245,6 +247,8 @@ def _scripts_catalog() -> list[dict]:
                 "path": rel,
                 "kind": kind,
                 "scenes": scenes,
+                "title": title,
+                "snippet": snippet,
                 "topic": topic,
                 "progress": progress,
             })
@@ -296,6 +300,7 @@ def _outputs_catalog(query: str | None = None) -> list[dict]:
             "mtime": final.stat().st_mtime if final.exists() else project.stat().st_mtime,
             "manifest": None,
             "script_name": "",
+            "accounts": [],
         }
         if manifest.exists():
             try:
@@ -306,6 +311,7 @@ def _outputs_catalog(query: str | None = None) -> list[dict]:
             sp = str(info["manifest"].get("script_path", "") or "")
             if sp:
                 info["script_name"] = Path(sp).stem
+            info["accounts"] = list(info["manifest"].get("accounts") or [])
         if not (info["final"] or info["manifest"]):
             continue
         if q:
@@ -482,7 +488,8 @@ def _save_script_yaml(script, out_path: str, extra: dict | None = None) -> Path:
     return dest
 
 
-def _post_process_build(manifest: dict, script_path: str, log) -> dict:
+def _post_process_build(manifest: dict, script_path: str, log,
+                        accounts=None) -> dict:
     """Sau build phim tài liệu: xuất lời dẫn txt + ghép tiếng gốc.
 
     Chỉ chạy cho build thật (không mock). Cập nhật manifest.json trên đĩa
@@ -507,6 +514,9 @@ def _post_process_build(manifest: dict, script_path: str, log) -> dict:
     # Ghi lại kịch bản gốc để tab Kịch bản/Kết quả nối video với kịch bản
     # (tính % tiến độ, tìm kiếm theo tên kịch bản).
     manifest["script_path"] = script_path
+    # Tài khoản được chọn cho build này (để bảng Kết quả hiện cột Tài
+    # khoản; build cũ không có field này thì hiển thị "—").
+    manifest["accounts"] = list(accounts or [])
     try:
         (out_dir / "manifest.json").write_text(
             json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -526,6 +536,11 @@ def _run_build_job(job_id: str, params: dict) -> None:
     import automuse.pipeline as pipeline_mod
 
     job = job_store.get(job_id)
+    if job is None:
+        return  # job đã bị xóa khỏi danh sách trong lúc chờ lượt
+    if job.get("status") == "cancelled":
+        job["finished_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
+        return  # job đã bị hủy trong lúc chờ lượt
     job["status"] = "running"
     job["started_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
     orig_log = pipeline_mod.log
@@ -558,7 +573,8 @@ def _run_build_job(job_id: str, params: dict) -> None:
             sync_api_key=None,
         )
         if not manifest.get("mock"):
-            manifest = _post_process_build(manifest, script_path, job_log)
+            manifest = _post_process_build(manifest, script_path, job_log,
+                                           params.get("accounts") or [])
         job["manifest"] = manifest
         job["status"] = "done"
     except Exception as e:  # noqa: BLE001 - ghi lỗi vào job cho UI hiển thị
@@ -1561,8 +1577,9 @@ class StudioHandler(BaseHTTPRequestHandler):
             errors = validate(load_script(target))
             if errors:
                 return _json(self, {"error": "kịch bản lỗi: " + "; ".join(errors)}, 400)
-            if not BUILD_LOCK.acquire(blocking=False):
-                return _json(self, {"error": "đang có một job chạy, đợi xong rồi chạy tiếp"}, 409)
+            # Hàng đợi: job mới luôn được nhận (status queued), thread của
+            # nó chờ BUILD_LOCK rồi mới chạy — nhiều job xếp hàng chạy
+            # tuần tự thay vì job thứ 2 bị từ chối 409 như trước.
             job_id = uuid.uuid4().hex[:8]
             job = job_store.create(job_id, {
                 "script": script,
@@ -1575,11 +1592,37 @@ class StudioHandler(BaseHTTPRequestHandler):
             thread.start()
             return _json(self, {"ok": True, "job_id": job_id, "job": job})
 
+        if path.startswith("/api/jobs/") and path.endswith("/cancel"):
+            # Hủy job đang chờ (queued): job đang chạy không dừng được
+            # (pipeline đang chạy không cắt ngang an toàn được).
+            job_id = unquote(path[len("/api/jobs/"):-len("/cancel") - 1])
+            job = job_store.get(job_id)
+            if not job:
+                return _json(self, {"error": "không thấy job"}, 404)
+            if job.get("status") != "queued":
+                return _json(self, {"error": "chỉ hủy được job đang chờ"},
+                             400)
+            job["status"] = "cancelled"
+            job["finished_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
+            return _json(self, {"ok": True, "status": "cancelled"})
+
         return _json(self, {"error": "not found"}, 404)
 
     def do_DELETE(self):
         parsed = urlparse(self.path)
         path = parsed.path
+        if path.startswith("/api/jobs/"):
+            job_id = unquote(path[len("/api/jobs/"):])
+            job = job_store.get(job_id)
+            if not job:
+                return _json(self, {"error": "không thấy job"}, 404)
+            if job.get("status") == "running":
+                return _json(self, {"error": "job đang chạy, không xóa được"},
+                             400)
+            # Job đang chờ mà xóa khỏi dict thì thread chờ lượt sẽ tự bỏ
+            # qua khi tới lượt (job None) — tức là xóa = dừng hẳn job đó.
+            job_store.remove(job_id)
+            return _json(self, {"ok": True})
         if path.startswith("/api/accounts/"):
             name = unquote(path[len("/api/accounts/"):])
             mgr = AccountManager()
@@ -1628,6 +1671,9 @@ class StudioHandler(BaseHTTPRequestHandler):
 
 
 def _build_wrapper(job_id: str, params: dict) -> None:
+    # Chờ đến lượt (hàng đợi) rồi mới chạy; job bị hủy/xóa trong lúc chờ
+    # thì _run_build_job tự bỏ qua. Lock lấy và trả trong cùng thread.
+    BUILD_LOCK.acquire()
     try:
         _run_build_job(job_id, params)
     finally:

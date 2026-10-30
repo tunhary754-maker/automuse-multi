@@ -231,6 +231,38 @@ select[multiple] { min-height: 96px; }
 .script-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .script-actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
 
+/* ---------- data table (kịch bản / tạo video / kết quả) ---------- */
+/* Bảng thống nhất: lọc trạng thái kèm đếm số, tìm kiếm, tích chọn hàng
+   loạt, STT, thumbnail, tài khoản, trạng thái, thao tác. */
+.table-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-bottom: 12px; }
+.pills { display: flex; gap: 6px; flex-wrap: wrap; }
+.pill { padding: 6px 13px; border-radius: 999px; border: 1px solid var(--border);
+  background: var(--surface-2); color: var(--muted); font-size: 13px; font-weight: 600;
+  cursor: pointer; white-space: nowrap; }
+.pill:hover { border-color: var(--border-strong); color: var(--text); }
+.pill.active { background: var(--accent-soft); border-color: rgba(245, 165, 36, .55); color: var(--text); }
+.pill .n { color: var(--faint); font-weight: 500; }
+.pill.active .n { color: var(--muted); }
+.bulk-bar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 0 0 12px; }
+.table-scroll { overflow-x: auto; }
+table.data { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+table.data thead th { position: sticky; top: 0; background: var(--surface); z-index: 1;
+  text-align: left; padding: 9px 12px; font-size: 11.5px; letter-spacing: .05em;
+  text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--border-strong);
+  white-space: nowrap; }
+table.data tbody td { padding: 11px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+table.data tbody tr:hover { background: var(--surface-2); }
+table.data .stt, table.data .chk { text-align: center; color: var(--muted); white-space: nowrap; }
+table.data .thumb { width: 72px; height: 40px; border-radius: 8px; object-fit: cover;
+  background: var(--surface-2); display: block; }
+table.data .thumb-ph { width: 72px; height: 40px; border-radius: 8px; background: var(--surface-2);
+  display: flex; align-items: center; justify-content: center; font-size: 18px; color: var(--muted); }
+table.data .row-title { font-weight: 700; line-height: 1.35; }
+table.data .row-sub { color: var(--muted); font-size: 12px; line-height: 1.4;
+  max-width: 460px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+table.data .name-cell { display: flex; gap: 10px; align-items: center; min-width: 240px; }
+table.data .name-cell .name-text { min-width: 0; }
+
 /* ---------- build: log & progress ---------- */
 .log {
   background: #08090d; border: 1px solid var(--border); border-radius: 12px;

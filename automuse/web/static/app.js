@@ -165,90 +165,142 @@ function statusBadge(p) {
   if (p.status === "building") return `<span class="badge running">Đang dựng ${p.pct}%</span>`;
   return `<span class="badge">Chưa dựng</span>`;
 }
-function scriptRow(s) {
+// ---------------- scripts: bảng (lọc trạng thái, tìm kiếm, chủ đề, tích chọn) ----------------
+let scriptsRows = [];
+let scriptsFilter = "all"; // all | waiting | running | done
+let scriptsQuery = "";
+let scriptsTopic = "";
+let scriptsSelected = new Set();
+function scriptStatusKey(p) {
+  if (!p) return "waiting";
+  if (p.status === "done") return "done";
+  if (p.status === "building") return "running";
+  return "waiting";
+}
+function pillsHtml(counts, active, defs) {
+  // defs: [[key, label], ...] — hiện đủ các pill kể cả khi đếm 0 (như mẫu).
+  return defs.map(([k, label]) => `<button class="pill ${k === active ? "active" : ""}" data-pill="${k}">${label} <span class="n">${counts[k] ?? 0}</span></button>`).join("");
+}
+function scriptsFiltered() {
+  return scriptsRows.filter((s) => {
+    if (scriptsFilter !== "all" && scriptStatusKey(s.progress) !== scriptsFilter) return false;
+    if (scriptsTopic && (s.topic || "") !== scriptsTopic) return false;
+    if (scriptsQuery) {
+      const hay = `${s.name} ${s.title || ""} ${s.topic || ""} ${s.snippet || ""}`.toLowerCase();
+      if (!hay.includes(scriptsQuery)) return false;
+    }
+    return true;
+  });
+}
+function scriptTableRow(s, stt) {
   const p = s.progress;
-  const bar = p && p.status === "building"
-    ? `<div class="progress"><div style="width:${p.pct}%"></div></div>` : "";
-  const out = p && p.output_path ? `<span class="meta"> · 📁 ${esc(p.output_path)}</span>` : "";
   const clips = p && p.status === "building" ? ` · ${p.clips}/${p.scenes} clip` : "";
+  const out = p && p.output_path ? ` · 📁 ${esc(p.output_path)}` : "";
   // Chỉ xóa được kịch bản trong scripts/ (mẫu template/example là đồ
   // chung, endpoint xóa cũng chỉ làm việc trong scripts/).
   const del = s.source === "scripts"
     ? `<button class="btn small danger" data-del-script="${esc(s.name)}">🗑 Xóa</button>` : "";
-  return `<li data-path="${esc(s.path)}" class="script-row ${s.path === currentScriptPath ? "selected" : ""}">
-    <div class="script-row-top"><b class="script-name">${esc(s.name)}</b> ${statusBadge(p)}</div>
-    <div class="meta">${esc(s.source)} · ${esc(s.kind)} · ${s.scenes} cảnh${clips}${out}</div>
-    <div class="script-actions">
+  const checked = scriptsSelected.has(s.path) ? "checked" : "";
+  return `<tr data-path="${esc(s.path)}">
+    <td class="chk"><input type="checkbox" class="script-check" data-check="${esc(s.path)}" ${checked}></td>
+    <td class="stt">${stt}</td>
+    <td><div class="name-cell"><div class="thumb-ph">📄</div><div class="name-text"><div class="row-title">${esc(s.title || s.name)}</div><div class="row-sub">${esc(s.snippet || `${s.source} · ${s.kind} · ${s.scenes} cảnh`)}</div></div></div></td>
+    <td>${esc(s.topic || "—")}</td>
+    <td>${esc(s.kind)}</td>
+    <td>${esc(s.account || "—")}</td>
+    <td>${statusBadge(p)}<span class="meta">${clips}${out}</span></td>
+    <td><div class="row-actions">
       <button class="btn small" data-open-script="${esc(s.path)}">Mở</button>
       <button class="btn small" data-build-script="${esc(s.path)}">▶ Video</button>
       ${del}
-    </div>
-    ${bar}
-  </li>`;
+    </div></td>
+  </tr>`;
+}
+function renderScriptsTable() {
+  const rows = scriptsFiltered();
+  const counts = { all: scriptsRows.length, waiting: 0, running: 0, done: 0 };
+  for (const s of scriptsRows) counts[scriptStatusKey(s.progress)]++;
+  $("#scripts-pills").innerHTML = pillsHtml(counts, scriptsFilter, [["all", "Tất cả"], ["waiting", "Chờ"], ["running", "Đang chạy"], ["done", "Xong"]]);
+  $("#scripts-tbody").innerHTML = rows.map((s, i) => scriptTableRow(s, i + 1)).join("")
+    || `<tr><td colspan="8" style="text-align:center;color:var(--muted)">Chưa có kịch bản nào khớp.</td></tr>`;
+  const visible = rows.map((s) => s.path);
+  $("#scripts-check-all").checked = visible.length > 0 && visible.every((p) => scriptsSelected.has(p));
 }
 async function loadScripts() {
   const all = await api("/api/scripts");
   const list = all.filter((s) => s.kind === "documentary" || s.kind === "?");
   let batches = [];
   try { batches = await api("/api/batches"); } catch (e) { batches = []; }
-  // Map đường dẫn kịch bản -> chủ đề của đợt (ưu tiên đợt mới nhất).
+  // Map đường dẫn kịch bản -> chủ đề + tài khoản đã viết (đợt mới nhất
+  // thắng, vì /api/batches trả mới nhất trước).
   const topicOf = new Map();
-  const batchTopicInfo = new Map(); // topic -> {done, total}
+  const accountOf = new Map();
   for (const b of batches) {
     for (const t of b.topics || []) {
-      let done = 0;
       for (const s of t.scripts || []) {
-        if (s.file) topicOf.set(s.file, t.name);
-        if (s.status === "done") done++;
+        if (!s.file) continue;
+        if (!topicOf.has(s.file)) topicOf.set(s.file, t.name);
+        if (!accountOf.has(s.file) && s.account) accountOf.set(s.file, s.account);
       }
-      batchTopicInfo.set(t.name, { done, total: (t.scripts || []).length });
     }
   }
-  const groups = new Map(); // topic -> [scripts]
-  const others = [];
-  for (const s of list) {
-    const topic = topicOf.get(s.path) || s.topic || "";
-    if (topic) {
-      if (!groups.has(topic)) groups.set(topic, []);
-      groups.get(topic).push(s);
-    } else {
-      others.push(s);
-    }
-  }
-  let html = "";
-  for (const [topic, scripts] of groups) {
-    const info = batchTopicInfo.get(topic);
-    const head = info ? `📁 ${esc(topic)} — ${info.done}/${info.total} kịch bản` : `📁 ${esc(topic)}`;
-    html += `<div class="script-group"><h3>${head}</h3><ul class="list">${scripts.map(scriptRow).join("")}</ul></div>`;
-  }
-  if (others.length) {
-    html += `<div class="script-group"><h3>📄 Kịch bản khác — ${others.length} kịch bản</h3><ul class="list">${others.map(scriptRow).join("")}</ul></div>`;
-  }
-  $("#scripts-list").innerHTML = html || "Chưa có kịch bản nào.";
-  applyScriptFilter();
+  scriptsRows = list.map((s) => ({
+    ...s,
+    topic: topicOf.get(s.path) || s.topic || "",
+    account: accountOf.get(s.path) || "",
+  }));
+  // Lọc chủ đề: giữ lựa chọn cũ nếu còn, không thì về Tất cả.
+  const topics = [...new Set(scriptsRows.map((s) => s.topic).filter(Boolean))].sort();
+  const topicSel = $("#scripts-topic-filter");
+  const prevTopic = topicSel.value;
+  topicSel.innerHTML = `<option value="">Tất cả chủ đề</option>` + topics.map((t) => `<option value="${esc(t)}">${esc(t)}</option>`).join("");
+  topicSel.value = topics.includes(prevTopic) ? prevTopic : "";
+  scriptsTopic = topicSel.value;
+  renderScriptsTable();
   const sel = $("#build-script-select");
   const prev = sel.value;
   sel.innerHTML = list.map((s) => `<option value="${esc(s.path)}">${esc(s.name)} (${esc(s.source)} · ${s.scenes} cảnh)</option>`).join("");
   if (prev) sel.value = prev;
 }
-function applyScriptFilter() {
-  const q = ($("#script-filter").value || "").trim().toLowerCase();
-  document.querySelectorAll("#scripts-list .script-group").forEach((g) => {
-    let visible = 0;
-    g.querySelectorAll("li.script-row").forEach((li) => {
-      const name = (li.querySelector(".script-name")?.textContent || "").toLowerCase();
-      const show = !q || name.includes(q);
-      li.style.display = show ? "" : "none";
-      if (show) visible++;
-    });
-    g.style.display = visible ? "" : "none";
-  });
-}
-$("#script-filter").addEventListener("input", applyScriptFilter);
-$("#scripts-list").addEventListener("click", async (e) => {
+$("#scripts-pills").addEventListener("click", (e) => {
+  const pill = e.target.closest("[data-pill]");
+  if (!pill) return;
+  scriptsFilter = pill.dataset.pill;
+  renderScriptsTable();
+});
+$("#scripts-search").addEventListener("input", (e) => {
+  scriptsQuery = e.target.value.trim().toLowerCase();
+  renderScriptsTable();
+});
+$("#scripts-topic-filter").addEventListener("change", (e) => {
+  scriptsTopic = e.target.value;
+  renderScriptsTable();
+});
+$("#scripts-check-all").addEventListener("change", (e) => {
+  const on = e.target.checked;
+  for (const s of scriptsFiltered()) {
+    if (on) scriptsSelected.add(s.path); else scriptsSelected.delete(s.path);
+  }
+  renderScriptsTable();
+});
+$("#btn-scripts-select-all").addEventListener("click", () => {
+  const rows = scriptsFiltered();
+  const allChecked = rows.length && rows.every((s) => scriptsSelected.has(s.path));
+  for (const s of rows) {
+    if (allChecked) scriptsSelected.delete(s.path); else scriptsSelected.add(s.path);
+  }
+  renderScriptsTable();
+});
+$("#scripts-tbody").addEventListener("click", async (e) => {
+  const check = e.target.closest(".script-check");
+  if (check) {
+    const p = check.dataset.check;
+    if (check.checked) scriptsSelected.add(p); else scriptsSelected.delete(p);
+    renderScriptsTable();
+    return;
+  }
   const del = e.target.closest("[data-del-script]");
   if (del) {
-    e.stopPropagation();
     if (!confirm(`Xóa kịch bản "${del.dataset.delScript}"? (xóa cả file prompts + lời dẫn kèm theo)`)) return;
     try {
       await api(`/api/scripts/${encodeURIComponent(del.dataset.delScript)}`, { method: "DELETE" });
@@ -258,15 +310,48 @@ $("#scripts-list").addEventListener("click", async (e) => {
   }
   const build = e.target.closest("[data-build-script]");
   if (build) {
-    e.stopPropagation();
     gotoTab("build");
     $("#build-script-select").value = build.dataset.buildScript;
     return;
   }
   const open = e.target.closest("[data-open-script]");
   if (open) { openScript(open.dataset.openScript); return; }
-  const li = e.target.closest("li[data-path]");
-  if (li) openScript(li.dataset.path);
+  const tr = e.target.closest("tr[data-path]");
+  if (tr) openScript(tr.dataset.path);
+});
+$("#btn-scripts-del-selected").addEventListener("click", async () => {
+  const rows = scriptsFiltered().filter((s) => scriptsSelected.has(s.path));
+  if (!rows.length) return alert("Chưa tích chọn kịch bản nào.");
+  const deletable = rows.filter((s) => s.source === "scripts");
+  if (!deletable.length) return alert("Các kịch bản đã chọn đều là mẫu (template/example) nên không xóa được.");
+  if (!confirm(`Xóa ${deletable.length} kịch bản? (xóa cả file prompts + lời dẫn kèm theo)`)) return;
+  let ok = 0;
+  for (const s of deletable) {
+    try { await api(`/api/scripts/${encodeURIComponent(s.name)}`, { method: "DELETE" }); ok++; }
+    catch (e) { /* báo tổng cuối */ }
+  }
+  scriptsSelected.clear();
+  const msg = $("#scripts-msg");
+  msg.className = "msg ok";
+  msg.textContent = `Đã xóa ${ok}/${deletable.length} kịch bản${rows.length - deletable.length ? ` (bỏ qua ${rows.length - deletable.length} mẫu)` : ""}.`;
+  loadScripts();
+});
+$("#btn-scripts-build-selected").addEventListener("click", async () => {
+  const rows = scriptsFiltered().filter((s) => scriptsSelected.has(s.path));
+  if (!rows.length) return alert("Chưa tích chọn kịch bản nào.");
+  const msg = $("#scripts-msg");
+  msg.className = "msg"; msg.textContent = `Đang xếp hàng ${rows.length} video…`;
+  let ok = 0;
+  for (const s of rows) {
+    try {
+      await api("/api/build", { method: "POST", body: JSON.stringify({ script: s.path }) });
+      ok++;
+    } catch (e) { /* job lỗi thì đếm vào phần chưa xếp được */ }
+  }
+  scriptsSelected.clear();
+  msg.className = "msg ok";
+  msg.textContent = `Đã xếp hàng ${ok}/${rows.length} video — xem tiến độ ở tab Tạo video.`;
+  loadJobs();
 });
 async function openScript(path) {
   const data = await api(`/api/scripts/content?path=${encodeURIComponent(path)}`);
@@ -276,6 +361,8 @@ async function openScript(path) {
   $("#editor-title").textContent = path;
   $("#script-editor").value = data.content;
   loadScripts();
+  // Bảng giờ nằm phía trên, khung soạn ở dưới — cuộn xuống khung soạn.
+  document.querySelector("#tab-scripts .editor")?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 $("#btn-new-script").addEventListener("click", () => {
   const name = prompt("Tên kịch bản mới (vd: ca-voi-xanh):");
@@ -411,10 +498,10 @@ async function watchJob(jobId) {
       const done = (job.log.join("\n").match(/Chuẩn hóa /g) || []).length;
       bar.style.width = total ? Math.min(100, (done / total) * 100) + "%" : "15%";
       $("#job-meta").textContent = `${esc(job.script)} · ${job.started_at || ""}`;
-      if (job.status === "done" || job.status === "failed") {
+      badge.className = "badge " + (job.status === "running" ? "running" : job.status === "queued" ? "" : job.status === "done" ? "ok" : job.status === "failed" ? "bad" : "");
+      badge.textContent = job.status === "running" ? "đang chạy…" : job.status === "queued" ? "đang chờ…" : job.status === "done" ? "xong ✓" : job.status === "failed" ? "lỗi ✗" : job.status === "cancelled" ? "đã hủy" : job.status;
+      if (job.status === "done" || job.status === "failed" || job.status === "cancelled") {
         clearInterval(pollTimer);
-        badge.className = "badge " + (job.status === "done" ? "ok" : "bad");
-        badge.textContent = job.status === "done" ? "xong ✓" : "lỗi ✗";
         if (job.status === "done") bar.style.width = "100%";
         if (job.error) logEl.textContent += "\nLỖI: " + job.error;
         loadJobs(); loadOutputs(); loadStatus();
@@ -423,14 +510,158 @@ async function watchJob(jobId) {
   }, 2000);
 }
 async function loadJobs() {
-  const jobs = await api("/api/jobs");
-  $("#jobs-list").innerHTML = jobs.map((j) => `
-    <li>
-      <span><b>${esc(j.id)}</b> · ${esc(j.script)} ${j.mock ? "(mock)" : ""}
-        <span class="meta">${j.created_at} → ${j.status}</span></span>
-      <button class="btn small" onclick="watchJob('${esc(j.id)}')">Xem log</button>
-    </li>`).join("") || "<li>Chưa có job nào.</li>";
+  jobsRows = await api("/api/jobs");
+  renderJobsTable();
 }
+// ---------------- jobs: bảng (lọc trạng thái, tìm kiếm, tích chọn) ----------------
+let jobsRows = [];
+let jobsFilter = "all"; // all | waiting | running | done | failed | cancelled
+let jobsQuery = "";
+let jobsSelected = new Set();
+function jobStatusKey(j) {
+  if (j.status === "done") return "done";
+  if (j.status === "running") return "running";
+  if (j.status === "failed") return "failed";
+  if (j.status === "cancelled") return "cancelled";
+  return "waiting"; // queued
+}
+function jobBadge(j) {
+  const k = jobStatusKey(j);
+  if (k === "done") return `<span class="badge ok">Xong</span>`;
+  if (k === "running") return `<span class="badge running">Đang chạy</span>`;
+  if (k === "failed") return `<span class="badge bad">Lỗi</span>`;
+  if (k === "cancelled") return `<span class="badge">Đã hủy</span>`;
+  return `<span class="badge">Chờ</span>`;
+}
+function scriptTitleFor(path) {
+  const s = scriptsRows.find((x) => x.path === path);
+  return s ? (s.title || s.name) : "";
+}
+function jobsFiltered() {
+  return jobsRows.filter((j) => {
+    if (jobsFilter !== "all" && jobStatusKey(j) !== jobsFilter) return false;
+    if (jobsQuery) {
+      const hay = `${j.id} ${j.script} ${scriptTitleFor(j.script)}`.toLowerCase();
+      if (!hay.includes(jobsQuery)) return false;
+    }
+    return true;
+  });
+}
+function jobTableRow(j, stt) {
+  const title = scriptTitleFor(j.script) || j.script;
+  const accounts = (j.accounts && j.accounts.length) ? j.accounts.join(", ") : "tất cả";
+  const checked = jobsSelected.has(j.id) ? "checked" : "";
+  const err = j.error ? ` <span class="meta">· ${esc(j.error)}</span>` : "";
+  let actions = `<button class="btn small" data-watch-job="${esc(j.id)}">Xem log</button>`;
+  if (j.status === "queued") actions += ` <button class="btn small" data-cancel-job="${esc(j.id)}">⏹ Hủy</button>`;
+  if (j.status === "done" || j.status === "failed" || j.status === "cancelled") actions += ` <button class="btn small" data-retry-job="${esc(j.script)}">↻ Chạy lại</button>`;
+  if (j.status !== "running") actions += ` <button class="btn small danger" data-del-job="${esc(j.id)}">🗑 Xóa</button>`;
+  return `<tr>
+    <td class="chk"><input type="checkbox" class="job-check" data-check="${esc(j.id)}" ${checked}></td>
+    <td class="stt">${stt}</td>
+    <td><div class="name-cell"><div class="thumb-ph">🎬</div><div class="name-text"><div class="row-title">${esc(title)}</div><div class="row-sub">${esc(j.script)} · ${esc(j.id)}${j.mock ? " · mock" : ""}</div></div></div></td>
+    <td>Video</td>
+    <td>${esc(accounts)}</td>
+    <td>${jobBadge(j)}${err}</td>
+    <td><div class="row-actions">${actions}</div></td>
+  </tr>`;
+}
+function renderJobsTable() {
+  const rows = jobsFiltered();
+  const counts = { all: jobsRows.length, waiting: 0, running: 0, done: 0, failed: 0, cancelled: 0 };
+  for (const j of jobsRows) counts[jobStatusKey(j)]++;
+  $("#jobs-pills").innerHTML = pillsHtml(counts, jobsFilter, [["all", "Tất cả"], ["waiting", "Chờ"], ["running", "Đang chạy"], ["done", "Xong"], ["failed", "Lỗi"], ["cancelled", "Đã hủy"]]);
+  $("#jobs-tbody").innerHTML = rows.map((j, i) => jobTableRow(j, i + 1)).join("")
+    || `<tr><td colspan="7" style="text-align:center;color:var(--muted)">Chưa có job nào.</td></tr>`;
+  const visible = rows.map((j) => j.id);
+  $("#jobs-check-all").checked = visible.length > 0 && visible.every((id) => jobsSelected.has(id));
+}
+$("#jobs-pills").addEventListener("click", (e) => {
+  const pill = e.target.closest("[data-pill]");
+  if (!pill) return;
+  jobsFilter = pill.dataset.pill;
+  renderJobsTable();
+});
+$("#jobs-search").addEventListener("input", (e) => {
+  jobsQuery = e.target.value.trim().toLowerCase();
+  renderJobsTable();
+});
+$("#jobs-check-all").addEventListener("change", (e) => {
+  const on = e.target.checked;
+  for (const j of jobsFiltered()) {
+    if (on) jobsSelected.add(j.id); else jobsSelected.delete(j.id);
+  }
+  renderJobsTable();
+});
+$("#btn-jobs-select-all").addEventListener("click", () => {
+  const rows = jobsFiltered();
+  const allChecked = rows.length && rows.every((j) => jobsSelected.has(j.id));
+  for (const j of rows) {
+    if (allChecked) jobsSelected.delete(j.id); else jobsSelected.add(j.id);
+  }
+  renderJobsTable();
+});
+$("#jobs-tbody").addEventListener("click", async (e) => {
+  const check = e.target.closest(".job-check");
+  if (check) {
+    const id = check.dataset.check;
+    if (check.checked) jobsSelected.add(id); else jobsSelected.delete(id);
+    renderJobsTable();
+    return;
+  }
+  const watch = e.target.closest("[data-watch-job]");
+  if (watch) { watchJob(watch.dataset.watchJob); return; }
+  const cancel = e.target.closest("[data-cancel-job]");
+  if (cancel) {
+    try { await api(`/api/jobs/${encodeURIComponent(cancel.dataset.cancelJob)}/cancel`, { method: "POST" }); loadJobs(); }
+    catch (err) { alert(err.message); }
+    return;
+  }
+  const retry = e.target.closest("[data-retry-job]");
+  if (retry) {
+    try {
+      const r = await api("/api/build", { method: "POST", body: JSON.stringify({ script: retry.dataset.retryJob }) });
+      watchJob(r.job_id);
+    } catch (err) { alert(err.message); }
+    return;
+  }
+  const del = e.target.closest("[data-del-job]");
+  if (del) {
+    try { await api(`/api/jobs/${encodeURIComponent(del.dataset.delJob)}`, { method: "DELETE" }); loadJobs(); }
+    catch (err) { alert(err.message); }
+    return;
+  }
+});
+$("#btn-jobs-retry-selected").addEventListener("click", async () => {
+  const rows = jobsFiltered().filter((j) => jobsSelected.has(j.id));
+  if (!rows.length) return alert("Chưa tích chọn job nào.");
+  const msg = $("#jobs-msg");
+  msg.className = "msg"; msg.textContent = `Đang xếp hàng ${rows.length} video…`;
+  let ok = 0;
+  for (const j of rows) {
+    try { await api("/api/build", { method: "POST", body: JSON.stringify({ script: j.script }) }); ok++; }
+    catch (e) { /* đếm cuối */ }
+  }
+  jobsSelected.clear();
+  msg.className = "msg ok"; msg.textContent = `Đã xếp hàng ${ok}/${rows.length} video.`;
+  loadJobs();
+});
+$("#btn-jobs-del-selected").addEventListener("click", async () => {
+  const rows = jobsFiltered().filter((j) => jobsSelected.has(j.id));
+  if (!rows.length) return alert("Chưa tích chọn job nào.");
+  const deletable = rows.filter((j) => j.status !== "running");
+  if (!deletable.length) return alert("Các job đã chọn đều đang chạy nên không xóa được.");
+  let ok = 0;
+  for (const j of deletable) {
+    try { await api(`/api/jobs/${encodeURIComponent(j.id)}`, { method: "DELETE" }); ok++; }
+    catch (e) { /* đếm cuối */ }
+  }
+  jobsSelected.clear();
+  const msg = $("#jobs-msg");
+  msg.className = "msg ok";
+  msg.textContent = `Đã xóa ${ok}/${deletable.length} job${rows.length - deletable.length ? ` (bỏ qua ${rows.length - deletable.length} job đang chạy)` : ""}.`;
+  loadJobs();
+});
 
 // ---------------- create: topics + write-script (phim tài liệu) ----------------
 let createdScriptPath = null;
@@ -671,6 +902,7 @@ document.addEventListener("click", (e) => {
   const del = e.target.closest("[data-del-output]");
   if (del) {
     e.preventDefault();
+    outputsSelected.delete(del.dataset.delOutput);
     if (!confirm(`Xóa video "${del.dataset.delOutput}"? (xóa cả thư mục output, không khôi phục được)`)) return;
     api(`/api/outputs/${encodeURIComponent(del.dataset.delOutput)}`, { method: "DELETE" })
       .then(() => loadOutputs())
@@ -679,13 +911,16 @@ document.addEventListener("click", (e) => {
   }
 });
 $("#btn-select-all-outputs").addEventListener("click", () => {
-  const boxes = $$(".output-check");
-  const allChecked = boxes.length && [...boxes].every((b) => b.checked);
-  boxes.forEach((b) => { b.checked = !allChecked; });
+  const rows = outputsRows.filter((o) => outputsFilter === "all" || outputStatusKey(o) === outputsFilter);
+  const allChecked = rows.length && rows.every((o) => outputsSelected.has(o.project));
+  for (const o of rows) {
+    if (allChecked) outputsSelected.delete(o.project); else outputsSelected.add(o.project);
+  }
+  renderOutputsTable();
 });
 $("#btn-download-zip").addEventListener("click", async () => {
   const msg = $("#outputs-msg");
-  const projects = [...$$(".output-check:checked")].map((b) => b.dataset.project);
+  const projects = [...outputsSelected];
   if (!projects.length) {
     msg.className = "msg err"; msg.textContent = "Chưa tích chọn video nào.";
     return;
@@ -710,12 +945,52 @@ document.addEventListener("click", (e) => {
   video.src = poster.dataset.final;
   poster.replaceWith(video);
 });
+// ---------------- outputs: bảng (lọc trạng thái, tích chọn) ----------------
+// outputCard giữ nguyên cho khối "video mới nhất" ở tab Tổng quan.
+let outputsRows = []; // tích lũy qua các trang đã tải
+let outputsFilter = "all"; // all | done | waiting
+let outputsSelected = new Set();
+function outputStatusKey(o) { return o.final ? "done" : "waiting"; }
+function outputTableRow(o, stt) {
+  const m = o.manifest || {};
+  const scenes = m.scenes ? m.scenes.length : "?";
+  const dur = m.scene_durations
+    ? Object.values(m.scene_durations).reduce((a, b) => a + b, 0).toFixed(0) + "s"
+    : "";
+  const thumb = o.poster
+    ? `<a href="${esc(o.final || "")}" target="_blank" rel="noopener"><img class="thumb" src="${esc(o.poster)}" loading="lazy" alt="${esc(m.title || o.project)}"></a>`
+    : (o.final ? `<a href="${esc(o.final)}" target="_blank" rel="noopener"><div class="thumb-ph">▶</div></a>` : `<div class="thumb-ph">—</div>`);
+  const accounts = (o.accounts && o.accounts.length) ? o.accounts.join(", ") : "—";
+  const checked = outputsSelected.has(o.project) ? "checked" : "";
+  return `<tr>
+    <td class="chk"><input type="checkbox" class="output-check" data-check="${esc(o.project)}" ${checked}></td>
+    <td class="stt">${stt}</td>
+    <td><div class="name-cell">${thumb}<div class="name-text"><div class="row-title">${esc(m.title || o.project)}</div><div class="row-sub">${esc(o.project)} · ${scenes} cảnh · ${dur} · ${(o.size / 1048576).toFixed(1)} MB${o.script_name ? ` · kịch bản: ${esc(o.script_name)}` : ""}</div></div></div></td>
+    <td>Video</td>
+    <td>${esc(accounts)}</td>
+    <td>${o.final ? `<span class="badge ok">Xong</span>` : `<span class="badge">Chờ</span>`}</td>
+    <td><div class="row-actions">
+      ${o.final ? `<a class="btn small" href="${esc(o.final)}" target="_blank" rel="noopener">▶ Xem</a> <a class="btn small" href="${esc(o.final)}" download>⬇ Tải</a>` : ""}
+      <button class="btn small danger" data-del-output="${esc(o.project)}">🗑 Xóa</button>
+    </div></td>
+  </tr>`;
+}
+function renderOutputsTable() {
+  const rows = outputsRows.filter((o) => outputsFilter === "all" || outputStatusKey(o) === outputsFilter);
+  const counts = { all: outputsRows.length, done: 0, waiting: 0 };
+  for (const o of outputsRows) counts[outputStatusKey(o)]++;
+  $("#outputs-pills").innerHTML = pillsHtml(counts, outputsFilter, [["all", "Tất cả"], ["done", "Xong"], ["waiting", "Chờ"]]);
+  $("#outputs-tbody").innerHTML = rows.map((o, i) => outputTableRow(o, i + 1)).join("")
+    || `<tr><td colspan="7" style="text-align:center;color:var(--muted)">Chưa có video nào.</td></tr>`;
+  const visible = rows.map((o) => o.project);
+  $("#outputs-check-all").checked = visible.length > 0 && visible.every((p) => outputsSelected.has(p));
+}
 async function loadOutputs(reset = true) {
   if (outputsLoading) return;
   if (reset) {
     outputsPage = 1;
     outputsQuery = $("#outputs-search").value.trim();
-    $("#outputs-grid").innerHTML = "";
+    outputsRows = [];
   }
   outputsLoading = true;
   try {
@@ -723,15 +998,51 @@ async function loadOutputs(reset = true) {
     outputsTotal = data.total; outputsPages = data.pages;
     const list = data.items;
     $("#outputs-count").textContent = outputsTotal ? `(${outputsTotal})` : "";
-    $("#outputs-count-text").textContent = `Hiển thị ${Math.min(outputsPage * 20, outputsTotal)} / ${outputsTotal} video`;
-    $("#outputs-grid").innerHTML += list.map(outputCard).join("");
+    $("#outputs-count-text").textContent = `Đã tải ${outputsRows.length + list.length} / ${outputsTotal} video`;
+    outputsRows.push(...list);
+    renderOutputsTable();
     $("#btn-more-outputs").style.display = outputsPage < outputsPages ? "" : "none";
-    if (!list.length && outputsPage === 1) $("#outputs-grid").innerHTML = "Chưa có video nào.";
     if (outputsPage === 1) $("#latest-outputs").innerHTML = list.slice(0, 3).map(outputCard).join("") || "Chưa có video nào — tạo video đầu tiên ở tab <b>Tạo video</b>.";
   } catch (e) {
-    if (outputsPage === 1) $("#outputs-grid").innerHTML = `Không tải được kết quả: ${esc(e.message)}`;
+    if (outputsPage === 1) $("#outputs-tbody").innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--muted)">Không tải được kết quả: ${esc(e.message)}</td></tr>`;
   } finally { outputsLoading = false; }
 }
+$("#outputs-pills").addEventListener("click", (e) => {
+  const pill = e.target.closest("[data-pill]");
+  if (!pill) return;
+  outputsFilter = pill.dataset.pill;
+  renderOutputsTable();
+});
+$("#outputs-tbody").addEventListener("click", (e) => {
+  const check = e.target.closest(".output-check");
+  if (check) {
+    const p = check.dataset.check;
+    if (check.checked) outputsSelected.add(p); else outputsSelected.delete(p);
+    renderOutputsTable();
+  }
+});
+$("#outputs-check-all").addEventListener("change", (e) => {
+  const on = e.target.checked;
+  const rows = outputsRows.filter((o) => outputsFilter === "all" || outputStatusKey(o) === outputsFilter);
+  for (const o of rows) {
+    if (on) outputsSelected.add(o.project); else outputsSelected.delete(o.project);
+  }
+  renderOutputsTable();
+});
+$("#btn-del-selected-outputs").addEventListener("click", async () => {
+  const projects = [...outputsSelected];
+  if (!projects.length) return alert("Chưa tích chọn video nào.");
+  if (!confirm(`Xóa ${projects.length} video? (xóa cả thư mục output, không khôi phục được)`)) return;
+  const msg = $("#outputs-msg");
+  let ok = 0;
+  for (const p of projects) {
+    try { await api(`/api/outputs/${encodeURIComponent(p)}`, { method: "DELETE" }); ok++; }
+    catch (e) { /* báo tổng cuối */ }
+  }
+  outputsSelected.clear();
+  msg.className = "msg ok"; msg.textContent = `Đã xóa ${ok}/${projects.length} video.`;
+  loadOutputs();
+});
 let outputsSearchTimer = null;
 $("#outputs-search").addEventListener("input", () => {
   clearTimeout(outputsSearchTimer);
@@ -742,3 +1053,4 @@ $("#btn-more-outputs").addEventListener("click", () => { outputsPage++; loadOutp
 // ---------------- init ----------------
 loadStatus(); loadAccounts(); loadScripts(); loadOutputs(); loadJobs();
 setInterval(loadStatus, 30000);
+setInterval(loadJobs, 10000); // bảng job tự cập nhật (hàng đợi chạy tuần tự)

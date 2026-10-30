@@ -115,7 +115,8 @@ def create_batch(topics: list[dict], episodes_per_topic: int,
     total = 0
     for t in topics:
         scripts = [{"index": i + 1, "file": "", "title": "",
-                    "status": "pending", "scenes": 0, "error": ""}
+                    "status": "pending", "scenes": 0, "error": "",
+                    "account": ""}
                    for i in range(max(1, episodes_per_topic))]
         topics_out.append({"name": t.get("name", ""),
                            "reason": t.get("reason", ""),
@@ -314,12 +315,13 @@ def run_batch(batch: dict, deps: dict) -> dict:
     def run_with_account(fn):
         """Chạy fn(client) với 1 acc bất kỳ đang rảnh, failover sang acc
         khác khi acc lỗi (lỗi kết nối hoặc lỗi khác đều thử acc tiếp
-        theo, giống bản tuần tự). Trả kết quả fn, hoặc None nếu dừng hẳn
-        / hết acc thử được. fn chỉ chạy khi đang giữ lock của acc đó."""
+        theo, giống bản tuần tự). Trả (kết quả fn, tên acc đã dùng),
+        hoặc (None, None) nếu dừng hẳn / hết acc thử được. fn chỉ chạy
+        khi đang giữ lock của acc đó."""
         attempted: set[str] = set()
         while True:
             if wait_for_pause_or_cancel():
-                return None
+                return None, None
             name = None
             for n in names:
                 if n in broken or n in attempted:
@@ -329,7 +331,7 @@ def run_batch(batch: dict, deps: dict) -> dict:
                     break
             if name is None:
                 if all(n in broken or n in attempted for n in names):
-                    return None
+                    return None, None
                 time.sleep(0.5)
                 continue
             try:
@@ -340,7 +342,7 @@ def run_batch(batch: dict, deps: dict) -> dict:
                         warn_connection(name, err)
                     continue
                 try:
-                    return fn(client)
+                    return fn(client), name
                 except Exception as e:  # noqa: BLE001 - thử acc tiếp theo
                     attempted.add(name)
                     if is_conn(e):
@@ -354,7 +356,7 @@ def run_batch(batch: dict, deps: dict) -> dict:
         if wait_for_pause_or_cancel():
             return ""
         try:
-            result = run_with_account(
+            result, _ = run_with_account(
                 lambda client: deps["research"](topic_name, client) or "")
         except Exception:  # noqa: BLE001 - nghiên cứu lỗi vẫn viết tiếp
             return ""
@@ -398,7 +400,7 @@ def run_batch(batch: dict, deps: dict) -> dict:
             return deps["write"](topic_name, client, target_scenes,
                                  research_text, timeout)
 
-        script = run_with_account(_write)
+        script, used_account = run_with_account(_write)
         if script is None:
             refresh_flags()
             if batch.get("cancelled"):
@@ -422,6 +424,7 @@ def run_batch(batch: dict, deps: dict) -> dict:
         entry["file"] = out_path
         entry["title"] = script.title
         entry["scenes"] = len(script.scenes)
+        entry["account"] = used_account or ""
         entry["status"] = "done"
         entry["error"] = ""
         recount(batch)
