@@ -154,24 +154,35 @@ $("#btn-notify-test").addEventListener("click", async () => {
 // dưới chủ đề đó (kèm tiến độ video từng kịch bản); còn lại vào nhóm
 // "Kịch bản khác".
 let currentScriptPath = null;
-function progressLabel(p) {
-  if (!p) return "⏳ Chưa dựng";
-  if (p.status === "done") return "✅ Đã dựng xong";
-  if (p.status === "building") return `🎬 ${p.pct}% (${p.clips}/${p.scenes} cảnh)`;
-  return "⏳ Chưa dựng";
+let editorCanDelete = false;
+function syncEditorDelBtn() {
+  const btn = $("#btn-del-script");
+  if (btn) btn.style.display = editorCanDelete ? "" : "none";
+}
+function statusBadge(p) {
+  if (!p) return `<span class="badge">Chưa dựng</span>`;
+  if (p.status === "done") return `<span class="badge ok">Đã dựng xong</span>`;
+  if (p.status === "building") return `<span class="badge running">Đang dựng ${p.pct}%</span>`;
+  return `<span class="badge">Chưa dựng</span>`;
 }
 function scriptRow(s) {
   const p = s.progress;
-  const bar = p && p.status !== "none"
+  const bar = p && p.status === "building"
     ? `<div class="progress"><div style="width:${p.pct}%"></div></div>` : "";
-  return `<li data-path="${esc(s.path)}" class="${s.path === currentScriptPath ? "selected" : ""}">
-    <span><b>${esc(s.name)}</b> <span class="meta">${esc(s.source)} · ${esc(s.kind)} · ${s.scenes} cảnh</span>
-    <span class="meta">${progressLabel(p)}${p && p.output_path ? ` · 📁 ${esc(p.output_path)}` : ""}</span></span>
-    <span>
+  const out = p && p.output_path ? `<span class="meta"> · 📁 ${esc(p.output_path)}</span>` : "";
+  const clips = p && p.status === "building" ? ` · ${p.clips}/${p.scenes} clip` : "";
+  // Chỉ xóa được kịch bản trong scripts/ (mẫu template/example là đồ
+  // chung, endpoint xóa cũng chỉ làm việc trong scripts/).
+  const del = s.source === "scripts"
+    ? `<button class="btn small danger" data-del-script="${esc(s.name)}">🗑 Xóa</button>` : "";
+  return `<li data-path="${esc(s.path)}" class="script-row ${s.path === currentScriptPath ? "selected" : ""}">
+    <div class="script-row-top"><b class="script-name">${esc(s.name)}</b> ${statusBadge(p)}</div>
+    <div class="meta">${esc(s.source)} · ${esc(s.kind)} · ${s.scenes} cảnh${clips}${out}</div>
+    <div class="script-actions">
       <button class="btn small" data-open-script="${esc(s.path)}">Mở</button>
       <button class="btn small" data-build-script="${esc(s.path)}">▶ Video</button>
-      <button class="btn small" data-del-script="${esc(s.name)}">🗑</button>
-    </span>
+      ${del}
+    </div>
     ${bar}
   </li>`;
 }
@@ -211,14 +222,29 @@ async function loadScripts() {
     html += `<div class="script-group"><h3>${head}</h3><ul class="list">${scripts.map(scriptRow).join("")}</ul></div>`;
   }
   if (others.length) {
-    html += `<div class="script-group"><h3>📄 Kịch bản khác</h3><ul class="list">${others.map(scriptRow).join("")}</ul></div>`;
+    html += `<div class="script-group"><h3>📄 Kịch bản khác — ${others.length} kịch bản</h3><ul class="list">${others.map(scriptRow).join("")}</ul></div>`;
   }
   $("#scripts-list").innerHTML = html || "Chưa có kịch bản nào.";
+  applyScriptFilter();
   const sel = $("#build-script-select");
   const prev = sel.value;
   sel.innerHTML = list.map((s) => `<option value="${esc(s.path)}">${esc(s.name)} (${esc(s.source)} · ${s.scenes} cảnh)</option>`).join("");
   if (prev) sel.value = prev;
 }
+function applyScriptFilter() {
+  const q = ($("#script-filter").value || "").trim().toLowerCase();
+  document.querySelectorAll("#scripts-list .script-group").forEach((g) => {
+    let visible = 0;
+    g.querySelectorAll("li.script-row").forEach((li) => {
+      const name = (li.querySelector(".script-name")?.textContent || "").toLowerCase();
+      const show = !q || name.includes(q);
+      li.style.display = show ? "" : "none";
+      if (show) visible++;
+    });
+    g.style.display = visible ? "" : "none";
+  });
+}
+$("#script-filter").addEventListener("input", applyScriptFilter);
 $("#scripts-list").addEventListener("click", async (e) => {
   const del = e.target.closest("[data-del-script]");
   if (del) {
@@ -245,6 +271,8 @@ $("#scripts-list").addEventListener("click", async (e) => {
 async function openScript(path) {
   const data = await api(`/api/scripts/content?path=${encodeURIComponent(path)}`);
   currentScriptPath = path;
+  editorCanDelete = path.startsWith("scripts/");
+  syncEditorDelBtn();
   $("#editor-title").textContent = path;
   $("#script-editor").value = data.content;
   loadScripts();
@@ -253,6 +281,8 @@ $("#btn-new-script").addEventListener("click", () => {
   const name = prompt("Tên kịch bản mới (vd: ca-voi-xanh):");
   if (!name) return;
   currentScriptPath = `scripts/${name}.yaml`;
+  editorCanDelete = false;
+  syncEditorDelBtn();
   $("#editor-title").textContent = currentScriptPath + " (mới)";
   $("#script-editor").value = `title: "${name}"
 kind: documentary
@@ -271,8 +301,25 @@ async function loadTemplate(kind) {
   const path = `templates/${kind}_script.yaml`;
   await openScript(path);
   currentScriptPath = null; // template chỉ để xem, lưu sẽ hỏi tên mới
+  editorCanDelete = false;
+  syncEditorDelBtn();
   $("#editor-title").textContent = path + " (mẫu — bấm Lưu để tạo bản sao)";
 }
+$("#btn-del-script").addEventListener("click", async () => {
+  if (!currentScriptPath || !editorCanDelete) return;
+  const name = currentScriptPath.replace(/^scripts\//, "").replace(/\.ya?ml$/, "");
+  if (!confirm(`Xóa kịch bản "${name}"? (xóa cả file prompts + lời dẫn kèm theo)`)) return;
+  try {
+    await api(`/api/scripts/${encodeURIComponent(name)}`, { method: "DELETE" });
+    currentScriptPath = null;
+    editorCanDelete = false;
+    syncEditorDelBtn();
+    $("#editor-title").textContent = "Chưa chọn kịch bản";
+    $("#script-editor").value = "";
+    $("#review-changes").innerHTML = "";
+    loadScripts();
+  } catch (err) { alert(err.message); }
+});
 $("#btn-template-doc").addEventListener("click", () => loadTemplate("documentary"));
 $("#btn-save-script").addEventListener("click", async () => {
   const msg = $("#script-msg");
@@ -289,7 +336,7 @@ $("#btn-save-script").addEventListener("click", async () => {
       body: JSON.stringify({ name, content: $("#script-editor").value }),
     });
     msg.className = "msg ok"; msg.textContent = "Đã lưu: " + r.path;
-    currentScriptPath = r.path; loadScripts();
+    currentScriptPath = r.path; editorCanDelete = true; syncEditorDelBtn(); loadScripts();
   } catch (e) {
     msg.className = "msg err"; msg.textContent = e.message;
   }

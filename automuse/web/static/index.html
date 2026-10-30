@@ -166,6 +166,11 @@
             <button class="btn small" id="btn-template-doc">Mẫu tài liệu</button>
           </span>
         </div>
+        <div class="row">
+          <label class="grow">🔍 Lọc kịch bản
+            <input id="script-filter" placeholder="Gõ tên kịch bản để lọc...">
+          </label>
+        </div>
         <ul class="list" id="scripts-list"></ul>
         <p class="hint">Kịch bản gom theo chủ đề (đợt hàng loạt). Mỗi kịch bản hiện trạng thái video: chưa dựng / đang dựng (số cảnh đã có) / đã dựng xong, kèm nút xóa.</p>
       </div>
@@ -175,6 +180,7 @@
           <span>
             <button class="btn small primary" id="btn-save-script">💾 Lưu</button>
             <button class="btn small" id="btn-build-script">▶ Tạo video từ kịch bản này</button>
+            <button class="btn small danger" id="btn-del-script" style="display:none">🗑 Xóa kịch bản này</button>
           </span>
         </div>
         <div class="row">
@@ -183,7 +189,7 @@
           </label>
           <button class="btn small" id="btn-review-script">🔍 Rà soát & sửa</button>
         </div>
-        <p class="hint">Bấm “Rà soát & sửa”: server gửi kịch bản cho Muse đọc lại — phần nào chưa tốt (thiếu số liệu, thiếu cơ chế, lời dẫn lệch thời lượng, mở đầu/kết chưa đạt) sẽ được sửa lại nhưng giữ sát bản gốc, kèm hướng dẫn bổ sung của bạn ở trên. Bản sửa nạp vào khung soạn để bạn xem rồi mới bấm Lưu (không tự lưu đè).</p>
+        <p class="hint">Bấm “Rà soát & sửa”: Muse đọc lại kịch bản, sửa phần chưa tốt nhưng giữ sát bản gốc (kèm hướng dẫn bổ sung của bạn). Bản sửa nạp vào khung soạn — bạn xem rồi mới bấm Lưu.</p>
         <div id="review-changes"></div>
         <span class="msg" id="review-msg"></span>
         <textarea id="script-editor" rows="24" spellcheck="false"

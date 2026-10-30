@@ -223,6 +223,13 @@ select[multiple] { min-height: 96px; }
 /* ---------- scripts layout / editor ---------- */
 .scripts-layout { display: grid; grid-template-columns: 330px 1fr; gap: 18px; align-items: start; }
 .editor textarea { min-height: 480px; background: var(--inset); }
+/* Hàng kịch bản: xếp tầng (tên + badge trạng thái, meta, nút bấm) để
+   trạng thái không bị ngắt dòng và nút xóa nhìn thấy rõ. */
+.list li.script-row { display: block; }
+.script-row-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.script-row-top .badge { flex: 0 0 auto; }
+.script-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.script-actions { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
 
 /* ---------- build: log & progress ---------- */
 .log {

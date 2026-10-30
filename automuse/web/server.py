@@ -694,10 +694,13 @@ class StudioHandler(BaseHTTPRequestHandler):
     def log_message(self, *args):  # noqa: D102 - tắt log mặc định cho gọn
         pass
 
-    def _send_file(self, path: Path) -> None:
+    def _send_file(self, path: Path, no_cache: bool = False) -> None:
         # Stream từng chunk 1MB thay vì đọc nguyên file vào RAM: mở tab
         # Kết quả với 1000 video cũng không làm server phình RAM, và
         # Range (tua video) chỉ đọc đúng đoạn cần thiết.
+        # no_cache: file giao diện (index/app.js/style.css) — trình duyệt
+        # phải tải mới mỗi lần, tránh kẹt JS/CSS cũ sau khi server đổi
+        # code (từng gây hiện tượng UI cũ dù server đã mới).
         ctype, _ = mimetypes.guess_type(str(path))
         size = path.stat().st_size
         span = _parse_range(self.headers.get("Range"), size)
@@ -719,6 +722,8 @@ class StudioHandler(BaseHTTPRequestHandler):
                 self.send_header("Content-Type", ctype or "application/octet-stream")
                 self.send_header("Accept-Ranges", "bytes")
                 self.send_header("Content-Length", str(size))
+                if no_cache:
+                    self.send_header("Cache-Control", "no-store")
                 self.end_headers()
                 self._copy_range(f, size)
         finally:
@@ -742,11 +747,11 @@ class StudioHandler(BaseHTTPRequestHandler):
         qs = parse_qs(parsed.query)
 
         if path == "/":
-            return self._send_file(STATIC_DIR / "index.html")
+            return self._send_file(STATIC_DIR / "index.html", no_cache=True)
         if path in ("/app.js", "/style.css"):
             target = STATIC_DIR / path.lstrip("/")
             if target.exists():
-                return self._send_file(target)
+                return self._send_file(target, no_cache=True)
             return _json(self, {"error": "not found"}, 404)
 
         if path == "/api/notify/status":
