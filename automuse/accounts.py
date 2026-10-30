@@ -217,6 +217,27 @@ class AccountManager:
         items = data.get("accounts", []) if isinstance(data, dict) else data
         self.accounts = [Account(**a) for a in items]
 
+    def reload_new(self) -> list[str]:
+        """Đọc lại file, chỉ thêm acc CHƯA có trong bộ nhớ (theo tên).
+
+        Dùng khi build đang chờ user thêm acc mới: acc cũ giữ nguyên trạng
+        thái trong bộ nhớ (jobs_failed, cooldown) — load() toàn bộ sẽ làm
+        mất trạng thái đó. Trả tên các acc mới thêm được.
+        """
+        if not self.path.exists():
+            return []
+        data = json.loads(self.path.read_text(encoding="utf-8"))
+        items = data.get("accounts", []) if isinstance(data, dict) else data
+        known = {a.name for a in self.accounts}
+        added: list[str] = []
+        for item in items:
+            acc = Account(**item)
+            if acc.name not in known:
+                self.accounts.append(acc)
+                known.add(acc.name)
+                added.append(acc.name)
+        return added
+
     def save(self) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         payload = {"accounts": [asdict(a) for a in self.accounts]}
@@ -250,12 +271,19 @@ class AccountManager:
     def enabled_accounts(self) -> list[Account]:
         return [a for a in self.accounts if a.enabled]
 
-    def pick(self, names: list[str] | None = None) -> Account | None:
-        """Round-robin: acc enabled, không cooldown, ít job nhất thì ưu tiên."""
+    def pick(self, names: list[str] | None = None,
+             exclude: set[str] | None = None) -> Account | None:
+        """Round-robin: acc enabled, không cooldown, ít job nhất thì ưu tiên.
+
+        ``exclude`` loại acc vừa lỗi khỏi lượt chọn này, để failover sang
+        acc khác ngay trong cùng một cảnh thay vì quay lại acc vừa lỗi.
+        """
         pool = self.enabled_accounts()
         if names:
             wanted = set(names)
             pool = [a for a in pool if a.name in wanted]
+        if exclude:
+            pool = [a for a in pool if a.name not in exclude]
         pool = [a for a in pool if not a.is_on_cooldown()]
         if not pool:
             return None

@@ -469,6 +469,65 @@ def cmd_lipsync_set_key(_args) -> int:
     return 0
 
 
+def cmd_notify_set(_args) -> int:
+    """Nhập Telegram bot token + chat ID, kiểm tra rồi mới lưu vào .env.
+
+    Kiểm tra 2 bước như voices set-key: getMe kiểm tra token, gửi tin thử
+    kiểm tra chat ID. Bước nào lỗi cũng chưa lưu gì cả.
+    """
+    from automuse.notify import (check_bot_token, save_telegram_config,
+                                 send_telegram, telegram_config)
+    token = getpass.getpass("Dán Telegram bot token (ẩn khi gõ, lấy từ @BotFather): ").strip()
+    if not token:
+        print("Chưa nhập token.")
+        return 1
+    ok, info = check_bot_token(token)
+    if not ok:
+        print(f"Token không dùng được: {info} — chưa lưu gì cả.")
+        return 1
+    chat_id = input("Nhập chat ID (số, lấy từ @userinfobot sau khi chat với bot): ").strip()
+    if not chat_id:
+        print("Chưa nhập chat ID.")
+        return 1
+    # Gửi thử bằng config tạm (chưa lưu): monkey-patch đọc env qua
+    # os.environ để send_telegram dùng đúng token/chat vừa nhập.
+    import os
+    old_token, old_chat = os.environ.get("TELEGRAM_BOT_TOKEN"), os.environ.get("TELEGRAM_CHAT_ID")
+    os.environ["TELEGRAM_BOT_TOKEN"] = token
+    os.environ["TELEGRAM_CHAT_ID"] = chat_id
+    try:
+        sent = send_telegram("✅ automuse-multi đã kết nối Telegram — khi build hết acc, tin nhắn sẽ tới đây.")
+    finally:
+        if old_token is None:
+            os.environ.pop("TELEGRAM_BOT_TOKEN", None)
+        else:
+            os.environ["TELEGRAM_BOT_TOKEN"] = old_token
+        if old_chat is None:
+            os.environ.pop("TELEGRAM_CHAT_ID", None)
+        else:
+            os.environ["TELEGRAM_CHAT_ID"] = old_chat
+    if not sent:
+        print("Không gửi được tin thử tới chat ID này (bot chưa được chat trước, "
+              "hoặc chat ID sai) — chưa lưu gì cả.")
+        return 1
+    save_telegram_config(token, chat_id)
+    print(f"Đã lưu Telegram vào .env — bot {info}, tin thử đã tới. "
+          "Khi build hết acc thật, bạn sẽ nhận tin nhắn để thêm acc mới.")
+    return 0
+
+
+def cmd_notify_test(_args) -> int:
+    from automuse.notify import send_telegram, telegram_configured
+    if not telegram_configured():
+        print("Chưa cấu hình Telegram — chạy `notify set` trước.")
+        return 1
+    if send_telegram("✅ Tin thử từ automuse-multi — Telegram đang hoạt động."):
+        print("Đã gửi tin thử.")
+        return 0
+    print("Gửi thất bại — kiểm tra lại token/chat ID bằng `notify set`.")
+    return 1
+
+
 def cmd_lipsync_sync(args) -> int:
     settings = load_settings()
     if args.model:
@@ -922,9 +981,29 @@ def cmd_build(args) -> int:
 def cmd_web(args) -> int:
     from automuse.web.server import serve
 
-    print("Mở trình duyệt tại "
-          f"http://{args.host}:{args.port}  (chỉ truy cập được từ máy này)")
-    serve(args.host, args.port)
+    # Port/host: ưu tiên cờ CLI, rồi web.host/web.port trong
+    # config/settings.yaml (do scripts/setup_server.py ghi), rồi mặc định
+    # 127.0.0.1:8080. Nhờ vậy setup 1 lần là lần sau chỉ cần `cli.py web`
+    # hoặc start-server.bat/sh, không cần gõ lại port.
+    settings = load_settings()
+    web_cfg = settings.get("web", {}) or {}
+    host = args.host or web_cfg.get("host") or "127.0.0.1"
+    try:
+        port = int(args.port if args.port is not None
+                   else web_cfg.get("port", 8080))
+    except (TypeError, ValueError):
+        print(f"Port không hợp lệ: {web_cfg.get('port')!r} — dùng 8080.")
+        port = 8080
+    if not 1 <= port <= 65535:
+        print(f"Port {port} ngoài khoảng 1-65535 — dùng 8080.")
+        port = 8080
+    if host == "0.0.0.0":
+        print(f"Mở trình duyệt tại http://<IP-máy-này>:{port}  (mạng LAN — "
+              f"không mở port ra internet, Web Studio không có đăng nhập)")
+    else:
+        print(f"Mở trình duyệt tại http://{host}:{port}  "
+              f"(chỉ truy cập được từ máy này)")
+    serve(host, port)
     return 0
 
 
@@ -1087,9 +1166,21 @@ def build_parser() -> argparse.ArgumentParser:
     lshow = ls_sub.add_parser("show", help="Xem cài đặt khớp môi hiện tại")
     lshow.set_defaults(func=cmd_lipsync_show)
 
+    n = sub.add_parser("notify", help="Thông báo Telegram khi build hết acc: nhập / gửi thử")
+    n.set_defaults(func=cmd_notify_test)
+    n_sub = n.add_subparsers(dest="notify_action")
+    nk = n_sub.add_parser("set", help="Nhập Telegram bot token + chat ID (kiểm tra rồi mới lưu vào .env)")
+    nk.set_defaults(func=cmd_notify_set)
+    nt = n_sub.add_parser("test", help="Gửi tin thử qua Telegram")
+    nt.set_defaults(func=cmd_notify_test)
+
     w = sub.add_parser("web", help="Mở Web Studio — giao diện quản lý kiểu automuse.site")
-    w.add_argument("--host", default="127.0.0.1", help="Mặc định chỉ máy này truy cập được")
-    w.add_argument("--port", type=int, default=8080)
+    w.add_argument("--host", default=None,
+                   help="Mặc định: web.host trong config/settings.yaml, "
+                        "nếu không có thì 127.0.0.1 (0.0.0.0 cho LAN)")
+    w.add_argument("--port", type=int, default=None,
+                   help="Mặc định: web.port trong config/settings.yaml, "
+                        "nếu không có thì 8080 (chạy scripts/setup_server.py để setup)")
     w.set_defaults(func=cmd_web)
     return p
 

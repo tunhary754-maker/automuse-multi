@@ -29,6 +29,18 @@
   <section id="tab-create" class="panel active">
     <h2>Tạo tập mới <small>chọn chủ đề → Muse viết kịch bản → tạo video</small></h2>
     <div class="card form">
+      <h2 style="margin-top:0">Tự động hoàn toàn — chỉ cần bấm 1 nút</h2>
+      <p class="hint">Tự chọn chủ đề (tránh chủ đề đã có kịch bản), Muse tự nghiên cứu chủ đề rồi viết kịch bản <b>dài</b> — tự quyết số cảnh và thời lượng từng cảnh theo câu chuyện. Dùng tài khoản Muse sẵn sàng đầu tiên. Kịch bản xong sẽ hiện bên dưới để bạn xem, sửa rồi bấm tạo video.</p>
+      <div class="row">
+        <label>Số phút mục tiêu
+          <input type="number" id="auto-minutes" min="3" max="60" value="8" placeholder="vd: 8">
+        </label>
+        <button class="btn primary big" id="btn-auto-create">🚀 Tạo tập mới tự động</button>
+        <span class="msg" id="auto-msg"></span>
+      </div>
+      <p class="hint">Mỗi cảnh ~10 giây nên 8 phút ≈ 48 cảnh. Kịch bản càng dài càng cần nhiều dữ liệu nên tool sẽ nghiên cứu chủ đề trước khi viết.</p>
+    </div>
+    <div class="card form">
       <div class="row">
         <label class="grow">Chủ đề tập phim
           <input id="create-topic" placeholder="vd: Cá voi xanh, Voi châu Phi, Chim cánh cụt hoàng đế" autocomplete="off">
@@ -96,6 +108,19 @@
       <thead><tr><th>Tên</th><th>Proxy</th><th>Jobs</th><th>Tuần này</th><th>Trạng thái</th><th></th></tr></thead>
       <tbody></tbody>
     </table>
+    <form id="notify-form" class="card form">
+      <h3 style="margin-top:0">📣 Báo qua Telegram khi build hết acc</h3>
+      <p class="hint">Khi build hết tài khoản dùng được giữa chừng, tool gửi tin nhắn Telegram để bạn thêm acc mới — rồi build tự làm tiếp cảnh dở dang, không cần chạy lại. Tạo bot qua @BotFather lấy token, chat với bot rồi lấy chat ID từ @userinfobot. Token lưu vào .env (không đẩy lên GitHub).</p>
+      <div class="row">
+        <label class="grow">Bot token <input name="token" type="password" placeholder="123456:ABC..." autocomplete="off"></label>
+        <label>Chat ID <input name="chat_id" placeholder="123456789"></label>
+      </div>
+      <div class="row">
+        <button type="submit" class="btn primary">💾 Lưu + gửi tin thử</button>
+        <button type="button" class="btn" id="btn-notify-test">✉️ Gửi tin thử</button>
+        <span class="msg" id="notify-msg"></span>
+      </div>
+    </form>
   </section>
 
   <!-- ============ SCRIPTS ============ -->

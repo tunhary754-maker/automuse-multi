@@ -326,6 +326,44 @@ class TestPromptsFromTextGateway(unittest.TestCase):
         self.assertEqual(len(prompts), 1)
         self.assertIn("Golden savanna at dawn", prompts[0].prompt)
 
+    def test_seq_out_of_order_reordered(self):
+        """Delta tới lệch thứ tự (seq 3 trước seq 1) vẫn ráp đúng thứ tự.
+
+        Hồi quy lỗi 2026-10-30: reply dài bị xáo trộn/nhân đôi vì
+        ask_muse_text append theo thứ tự tới, bỏ qua seq.
+        """
+        from automuse.prompting import ask_muse_text
+
+        def _seq_event(text, seq):
+            return json.dumps({"type": "event", "event": "delta.text_append",
+                               "payload": {"text": text}, "seq": seq})
+
+        client = FakeGatewayClient([_seq_event("C", 3), _seq_event("A", 1),
+                                    _seq_event("B", 2), _done_event()])
+        self.assertEqual(ask_muse_text(client, "hello"), "ABC")
+
+    def test_seq_duplicate_dropped(self):
+        """Cùng seq gửi 2 lần (retransmit) chỉ lấy 1 lần, không nhân đôi."""
+        from automuse.prompting import ask_muse_text
+
+        def _seq_event(text, seq):
+            return json.dumps({"type": "event", "event": "delta.text_append",
+                               "payload": {"text": text}, "seq": seq})
+
+        client = FakeGatewayClient([_seq_event("A", 1), _seq_event("A", 1),
+                                    _seq_event("B", 2), _done_event()])
+        self.assertEqual(ask_muse_text(client, "hello"), "AB")
+
+    def test_message_start_resets_previous_text(self):
+        """message_start mới bỏ text cũ (subscribe replay lại event cũ)."""
+        from automuse.prompting import ask_muse_text
+
+        start = json.dumps({"type": "event", "event": "delta.message_start",
+                            "payload": {}})
+        client = FakeGatewayClient([_text_event("OLD"), start,
+                                    _text_event("NEW"), _done_event()])
+        self.assertEqual(ask_muse_text(client, "hello"), "NEW")
+
     def test_unparsable_reply_falls_back_to_template(self):
         client = FakeGatewayClient([_text_event("..."), _done_event()])
         prompts = prompts_from_text(SAMPLE_VI, client=client)

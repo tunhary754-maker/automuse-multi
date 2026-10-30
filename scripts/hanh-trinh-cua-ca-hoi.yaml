@@ -1,0 +1,131 @@
+title: Hành Trình Của Cá Hồi, Từ Suối Nhỏ Ra Đại Dương Và Trở Về
+kind: documentary
+aspect: '16:9'
+default_voice: narrator
+fps: 30
+scenes:
+- id: s01
+  title: Khởi Hành Từ Suối Nhỏ
+  duration: 10
+  visual: A tiny salmon fry swims in a clear shallow mountain stream, sunlight sparkling
+    on rippling water over smooth pebbles.
+  narration: Từ dòng suối nhỏ, cá hồi vượt 4.000 km đại dương rồi quay về đúng nơi
+    sinh ra.
+- id: s02
+  title: Tổ Trứng Trong Sỏi
+  duration: 10
+  visual: A female salmon uses her tail to dig a gravel nest in a shallow stream bed,
+    her body angled against the current.
+  narration: Cá hồi mẹ đào tổ sỏi, đẻ 5.000 trứng rồi dùng đuôi phủ cát bảo vệ chúng.
+- id: s03
+  title: Sống Nhờ Túi Noãn Hoàng
+  duration: 10
+  visual: A tiny translucent salmon alevin rests between gravel stones, a golden yolk
+    sac attached beneath its body.
+  narration: Cá hồi con mang túi noãn hoàng, sống 6 tuần trong sỏi mà không cần ăn.
+- id: s04
+  title: Vạch Ngụy Trang
+  duration: 10
+  visual: A small salmon fry with dark vertical parr marks hides motionless among
+    pebbles in shallow stream water.
+  narration: Cá hồi non mang 11 vạch ngụy trang, trốn kẻ săn mồi giữa dòng suối nông.
+- id: s05
+  title: Hóa Bạc Ra Biển
+  duration: 10
+  visual: A silvery salmon smolt swims downstream through a sunlit river, its body
+    flashing silver as it turns.
+  narration: Trong 2 tuần, cá hồi hóa bạc, cơ thể đổi cách xử lý muối để ra biển.
+- id: s06
+  title: Xuôi Dòng Ra Biển
+  duration: 10
+  visual: A group of salmon smolts drifts downstream in a fast-flowing river, riding
+    the current past overhanging branches.
+  narration: Cá hồi xuôi dòng 100 km, bơi theo dòng chảy để tiết kiệm sức ra biển.
+- id: s07
+  title: Tập Quen Nước Lợ
+  duration: 10
+  visual: Salmon smolts swim slowly through murky estuary water where a river meets
+    the sea, reeds swaying at the banks.
+  narration: Cá hồi dừng 7 ngày ở cửa sông, tập quen nước lợ trước khi vào đại dương.
+- id: s08
+  title: Lớn Nhanh Ngoài Biển
+  duration: 10
+  visual: A young salmon chases small fish through open blue ocean water, sunlight
+    filtering down from the surface.
+  narration: Cá hồi ăn nhuyễn thể và cá nhỏ, tăng 10 lần trọng lượng trong 2 năm biển.
+- id: s09
+  title: Đàn Đông Để Sống Sót
+  duration: 10
+  visual: A dense school of salmon moves together through deep blue water, shifting
+    direction as one shimmering mass.
+  narration: Cá hồi bơi theo đàn hàng nghìn con, khiến kẻ săn mồi khó chọn một mục
+    tiêu.
+- id: s10
+  title: Mùi Quê Dẫn Đường
+  duration: 10
+  visual: A large salmon swims steadily through vast open ocean, heading toward a
+    distant coastline under clear blue water.
+  narration: Cá hồi ghi nhớ mùi suối quê bằng khứu giác, dẫn đường qua 4.000 km đại
+    dương.
+- id: s11
+  title: Nhịn Ăn Về Sông
+  duration: 10
+  visual: An adult salmon swims upstream against a strong river current, its body
+    lean and determined in clear water.
+  narration: Cá hồi ngừng ăn suốt 90 ngày về sông, sống nhờ mỡ tích trữ trong cơ thể.
+- id: s12
+  title: Nhảy Qua Thác
+  duration: 10
+  visual: A salmon leaps powerfully out of white rushing water at the base of a waterfall,
+    arcing toward the top.
+  narration: Cá hồi bật nhảy cao 3 mét qua thác, dùng đuôi mạnh vượt dòng nước xiết.
+- id: s13
+  title: Vượt Ghềnh Đá
+  duration: 10
+  visual: A battered salmon pushes upstream through turbulent rapids, water splashing
+    over rocks around it.
+  narration: Cá hồi vượt 20 thác ghềnh, bơi ngược dòng dù thân thể đã trầy xước và
+    kiệt sức.
+- id: s14
+  title: Đổi Màu Mùa Sinh Sản
+  duration: 10
+  visual: A male salmon with a hooked jaw and bright red spawning colors swims beside
+    a female in a shallow gravel stream.
+  narration: Sau 4 năm biển, cá hồi đực mọc hàm móc và chuyển đỏ để tranh bạn tình.
+- id: s15
+  title: Đào Tổ Mới
+  duration: 10
+  visual: A female salmon digs a fresh gravel nest with sweeping tail beats in a shallow
+    spawning stream.
+  narration: Cá hồi cái đào tổ mới, đẻ 5.000 trứng rồi phủ sỏi để trứng không bị cuốn
+    trôi.
+- id: s16
+  title: Tranh Nhau Thụ Tinh
+  duration: 10
+  visual: Three male salmon crowd around a spawning female over a gravel nest, jostling
+    for position in clear shallow water.
+  narration: Ba cá hồi đực tranh nhau phun tinh trùng lên trứng trong một tổ.
+- id: s17
+  title: Chết Để Nuôi Rừng
+  duration: 10
+  visual: A spent salmon lies still on a streambed among fallen leaves, its body beginning
+    to fade in clear water.
+  narration: Cá hồi chết sau sinh sản, xác mang nitơ biển xa 1.000 km nuôi rừng.
+- id: s18
+  title: Thế Hệ Mới Nở
+  duration: 10
+  visual: Tiny salmon fry emerge from gravel in a clear stream, wriggling free into
+    gentle sunlight-dappled water.
+  narration: Trứng cá hồi nở sau 100 ngày, thế hệ mới lại bắt đầu từ dòng suối cũ.
+- id: s19
+  title: Rừng Hưởng Lộc Biển
+  duration: 10
+  visual: A brown bear carries a salmon through a riverside forest, while eagles wait
+    on branches above the stream.
+  narration: Hàng trăm con gấu ăn cá hồi, mang chất biển vào đất rừng mỗi mùa thu.
+- id: s20
+  title: Cái Chết Không Phải Thất Bại
+  duration: 10
+  visual: A wide shot of a forest river at golden sunset, salmon swimming upstream
+    beneath tall trees reflected in calm water.
+  narration: Sau 4.000 km, cá hồi chết không phải thất bại, mà để mang biển nuôi rừng.

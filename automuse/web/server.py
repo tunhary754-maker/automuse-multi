@@ -324,6 +324,42 @@ def _attach_native_audio(out_dir: Path, log) -> None:
             log("Chuẩn hóa âm lượng thất bại — giữ bản tiếng gốc chưa chuẩn hóa.")
 
 
+def _save_script_yaml(script, out_path: str) -> Path:
+    """Lưu Script thành YAML (cùng format cli.write-script) vào out_path."""
+    import yaml
+
+    data = {
+        "title": script.title,
+        "kind": script.kind,
+        "aspect": script.aspect,
+        **({"characters": script.characters} if script.characters else {}),
+        **({"voices": script.voices} if script.voices else {}),
+        "default_voice": script.default_voice,
+        "fps": script.fps,
+        **({"music": script.music} if script.music else {}),
+        "scenes": [
+            {
+                "id": s.id,
+                "title": s.title,
+                "duration": s.duration,
+                "visual": s.visual,
+                "narration": s.narration,
+                **({"voice": s.voice} if s.voice else {}),
+                **({"character": s.character} if s.character else {}),
+                **({"reference_image": s.reference_image} if s.reference_image else {}),
+                **({"sfx": s.sfx} if s.sfx else {}),
+                **({"lipsync": True} if s.lipsync else {}),
+            }
+            for s in script.scenes
+        ],
+    }
+    dest = REPO_ROOT / out_path
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text(yaml.dump(data, allow_unicode=True, sort_keys=False),
+                    encoding="utf-8")
+    return dest
+
+
 def _post_process_build(manifest: dict, script_path: str, log) -> dict:
     """Sau build phim tài liệu: xuất lời dẫn txt + ghép tiếng gốc.
 
@@ -473,7 +509,12 @@ class StudioHandler(BaseHTTPRequestHandler):
                 return self._send_file(target)
             return _json(self, {"error": "not found"}, 404)
 
+        if path == "/api/notify/status":
+            from ..notify import telegram_configured
+            return _json(self, {"ok": True, "configured": telegram_configured()})
+
         if path == "/api/status":
+            from ..notify import telegram_configured
             ffmpeg = shutil.which("ffmpeg") is not None
             mgr = AccountManager()
             return _json(self, {
@@ -483,6 +524,7 @@ class StudioHandler(BaseHTTPRequestHandler):
                 "accounts_ready": len(mgr.enabled_accounts()),
                 "elevenlabs_configured": bool(elevenlabs_api_key()),
                 "lipsync_configured": bool(get_sync_key()),
+                "telegram_configured": telegram_configured(),
                 "elevenlabs_default_voice": load_settings().get("elevenlabs", {}).get("default_voice", "narrator"),
                 "elevenlabs_settings": {
                     "default_voice": load_settings().get("elevenlabs", {}).get("default_voice", "narrator"),
@@ -658,6 +700,36 @@ class StudioHandler(BaseHTTPRequestHandler):
             save_env_key("SYNC_API_KEY", key)
             return _json(self, {"ok": True})
 
+        if path == "/api/notify/save":
+            # Nhập Telegram bot token + chat ID: kiểm tra token qua getMe,
+            # kiểm tra chat bằng tin thử, rồi mới lưu vào .env.
+            from ..notify import (check_bot_token, save_telegram_config,
+                                  send_telegram_to, telegram_configured)
+            body = _read_json(self)
+            token = (body.get("token") or "").strip()
+            chat_id = (body.get("chat_id") or "").strip()
+            if not token or not chat_id:
+                return _json(self, {"error": "thiếu token hoặc chat ID"}, 400)
+            ok, info = check_bot_token(token)
+            if not ok:
+                return _json(self, {"error": f"token không dùng được: {info}"}, 400)
+            if not send_telegram_to(token, chat_id,
+                                    "✅ automuse-multi đã kết nối Telegram — "
+                                    "khi build hết acc, tin nhắn sẽ tới đây."):
+                return _json(self, {"error": "không gửi được tin thử tới chat ID này "
+                                             "(bot chưa được chat trước, hoặc chat ID sai)"},
+                             400)
+            save_telegram_config(token, chat_id)
+            return _json(self, {"ok": True, "bot": info})
+
+        if path == "/api/notify/test":
+            from ..notify import send_telegram, telegram_configured
+            if not telegram_configured():
+                return _json(self, {"error": "chưa cấu hình Telegram — nhập token + chat ID trước"}, 400)
+            if not send_telegram("✅ Tin thử từ automuse-multi — Telegram đang hoạt động."):
+                return _json(self, {"error": "gửi thất bại — kiểm tra lại token/chat ID"}, 400)
+            return _json(self, {"ok": True})
+
         if path == "/api/voices/default":
             body = _read_json(self)
             want = (body.get("voice") or "").strip()
@@ -809,42 +881,128 @@ class StudioHandler(BaseHTTPRequestHandler):
                                       scene_duration=duration, client=client)
             except Exception as e:  # noqa: BLE001
                 return _json(self, {"error": str(e)}, 400)
-            import yaml
-
-            data = {
-                "title": script.title,
-                "kind": script.kind,
-                "aspect": script.aspect,
-                **({"characters": script.characters} if script.characters else {}),
-                **({"voices": script.voices} if script.voices else {}),
-                "default_voice": script.default_voice,
-                "fps": script.fps,
-                **({"music": script.music} if script.music else {}),
-                "scenes": [
-                    {
-                        "id": s.id,
-                        "title": s.title,
-                        "duration": s.duration,
-                        "visual": s.visual,
-                        "narration": s.narration,
-                        **({"voice": s.voice} if s.voice else {}),
-                        **({"character": s.character} if s.character else {}),
-                        **({"reference_image": s.reference_image} if s.reference_image else {}),
-                        **({"sfx": s.sfx} if s.sfx else {}),
-                        **({"lipsync": True} if s.lipsync else {}),
-                    }
-                    for s in script.scenes
-                ],
-            }
-            dest = REPO_ROOT / out_path
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            dest.write_text(yaml.dump(data, allow_unicode=True, sort_keys=False),
-                            encoding="utf-8")
+            _save_script_yaml(script, out_path)
             return _json(self, {
                 "ok": True,
                 "path": out_path,
                 "title": script.title,
                 "scenes": len(script.scenes),
+            })
+
+        if path == "/api/auto-create":
+            # Một nút bấm: tự chọn chủ đề + tự viết kịch bản DÀI (Muse tự
+            # quyết số cảnh và thời lượng từng cảnh theo câu chuyện).
+            # Người dùng nhập số phút mục tiêu; càng dài càng cần nhiều dữ
+            # liệu nên trước khi viết, Muse nghiên cứu chủ đề trước (fact
+            # sheet) rồi mới viết kịch bản từ dữ liệu đó.
+            # Cần tài khoản Muse (đường Muse viết kịch bản thật, không dùng
+            # khung xương template). Thử lần lượt từng acc sẵn sàng: acc nào
+            # gateway hỏng (vd: thiếu authToken dù check login vẫn OK) thì
+            # tự chuyển sang acc khác, thay vì báo lỗi ngay.
+            import random
+
+            body = _read_json(self)
+            try:
+                minutes = int(body.get("minutes") or 0)
+            except (TypeError, ValueError):
+                minutes = 0
+            minutes = max(0, min(60, minutes))
+            # Mỗi cảnh ~10s -> số cảnh mục tiêu = phút × 6. Không nhập phút
+            # thì để Muse tự quyết theo mặc định (khoảng 15–30 cảnh).
+            target_scenes = minutes * 6 if minutes else None
+
+            mgr = AccountManager()
+            ready = mgr.enabled_accounts()
+            if not ready:
+                return _json(self, {"error": "chưa có tài khoản Muse sẵn sàng — "
+                                             "thêm acc ở tab Tài khoản Muse trước"},
+                             400)
+            first_client = None
+            for acc in ready:
+                c, _ = _gateway_client_for(acc.name)
+                if c is not None:
+                    first_client = c
+                    break
+            try:
+                ideas = suggest_topics("documentary", client=first_client)
+            except Exception:  # noqa: BLE001 - Muse gợi ý lỗi thì dùng list mẫu
+                ideas = []
+            if not ideas:
+                ideas = suggest_topics("documentary")
+            if not ideas:
+                return _json(self, {"error": "không gợi ý được chủ đề nào"}, 400)
+            # Tránh trùng chủ đề đã có kịch bản rồi (so theo slug file).
+            existing = set()
+            if SCRIPTS_DIR.is_dir():
+                existing = {p.stem for p in SCRIPTS_DIR.glob("*.yaml")}
+                existing |= {p.stem for p in SCRIPTS_DIR.glob("*.yml")}
+            fresh = [i for i in ideas
+                     if _slugify_topic(i.title) not in existing]
+            topic = (random.choice(fresh) if fresh else random.choice(ideas)).title
+            script = None
+            used_account = None
+            last_err = ""
+            # Acc nào không kết nối được thì báo lỗi luôn (Telegram nếu có
+            # + kèm vào kết quả), dù vẫn thử acc khác làm tiếp.
+            from ..notify import send_telegram, telegram_configured
+            from ..pipeline import is_connection_error
+            account_warnings: list[dict] = []
+            for acc in ready:
+                client, err = _gateway_client_for(acc.name)
+                if err:
+                    last_err = err
+                    if is_connection_error(RuntimeError(err)):
+                        account_warnings.append({"account": acc.name,
+                                                 "error": err})
+                        if telegram_configured():
+                            send_telegram(f"⚠️ Acc '{acc.name}' KHÔNG KẾT NỐI "
+                                          f"ĐƯỢC: {err} — auto-create đang thử "
+                                          f"acc khác.")
+                    continue
+                # Nghiên cứu trước: kịch bản dài cần nhiều dữ liệu thật.
+                # research_topic không raise (lỗi -> chuỗi rỗng, vẫn viết).
+                from ..topics import research_topic
+                research = research_topic(topic, client)
+                # Kịch bản càng dài Muse viết càng lâu: tăng timeout theo
+                # số cảnh mục tiêu (mặc định 180s chỉ đủ cho ~10-20 cảnh).
+                script_timeout = 180.0
+                if target_scenes:
+                    script_timeout = max(180.0, target_scenes * 10.0)
+                try:
+                    script = write_script(topic, kind="documentary",
+                                          scene_count=None, client=client,
+                                          strict=True,
+                                          target_scenes=target_scenes,
+                                          research=research,
+                                          timeout=script_timeout)
+                    used_account = acc.name
+                    break
+                except Exception as e:  # noqa: BLE001 - thử acc tiếp theo
+                    last_err = str(e)
+                    if is_connection_error(e):
+                        account_warnings.append({"account": acc.name,
+                                                 "error": last_err})
+                        if telegram_configured():
+                            send_telegram(f"⚠️ Acc '{acc.name}' KHÔNG KẾT NỐI "
+                                          f"ĐƯỢC: {last_err} — auto-create "
+                                          f"đang thử acc khác.")
+            if script is None:
+                return _json(self, {"error": f"không viết được kịch bản "
+                                             f"(đã thử {len(ready)} acc): {last_err}"},
+                             400)
+            out_path = f"scripts/{_slugify_topic(topic)}.yaml"
+            _save_script_yaml(script, out_path)
+            total = sum(s.duration or 10 for s in script.scenes)
+            return _json(self, {
+                "ok": True,
+                "path": out_path,
+                "title": script.title,
+                "topic": topic,
+                "account": used_account,
+                "scenes": len(script.scenes),
+                "total_duration": total,
+                "minutes_target": minutes or None,
+                "account_warnings": account_warnings,
             })
 
         if path == "/api/build":

@@ -327,5 +327,108 @@ class TestWriteScript(unittest.TestCase):
         self.assertEqual(validate(script), [])
 
 
+class TestWriteScriptAutoMode(unittest.TestCase):
+    """Chế độ tự quyết (scene_count=None): Muse tự chọn số cảnh + duration."""
+
+    FAKE_YAML_AUTO = """title: Rừng Mưa Nhiệt Đới
+kind: documentary
+aspect: "16:9"
+fps: 30
+default_voice: narrator
+scenes:
+  - id: a
+    title: Tán rừng buổi sáng
+    duration: 10
+    visual: Sunlight through rainforest canopy, wide shot.
+    narration: Rừng mưa nhận hai mét mưa mỗi năm mà vẫn khát nắng.
+  - id: b
+    title: Cơn mưa bất chợt
+    duration: 15
+    visual: Sudden rain over rainforest, tracking shot.
+    narration: Mưa trút xuống trong mười lăm phút rồi tạnh, đủ làm sông dâng.
+  - id: c
+    title: Ếch độc nhỏ xíu
+    duration: 8
+    visual: Tiny poison frog on a leaf, macro shot.
+    narration: Ếch chỉ dài hai phân mà độc đủ giết mười người.
+  - id: d
+    title: Đêm rừng không ngủ
+    duration: 10
+    visual: Rainforest at night with fireflies, wide shot.
+    narration: Đêm xuống, rừng ồn ào hơn ban ngày vì côn trùng thức.
+"""
+
+    def test_auto_instruction_lets_muse_decide(self):
+        seen = {}
+
+        def fake_ask(client, text, timeout=180.0):
+            seen["text"] = text
+            return self.FAKE_YAML_AUTO
+
+        with patch.object(tp, "ask_muse_text", side_effect=fake_ask):
+            tp.write_script("Rừng Mưa", scene_count=None, client=object())
+        self.assertIn("Decide YOURSELF how many scenes", seen["text"])
+        self.assertIn("Decide YOURSELF each scene's duration", seen["text"])
+        self.assertNotIn("Number of scenes:", seen["text"])
+
+    def test_auto_preserves_variable_durations(self):
+        with patch.object(tp, "ask_muse_text",
+                          return_value=self.FAKE_YAML_AUTO):
+            script = tp.write_script("Rừng Mưa", scene_count=None,
+                                     client=object())
+        self.assertEqual(len(script.scenes), 4)
+        self.assertEqual([s.id for s in script.scenes],
+                         ["s01", "s02", "s03", "s04"])
+        self.assertEqual([s.duration for s in script.scenes],
+                         [10, 15, 8, 10])
+        self.assertEqual(sum(s.duration for s in script.scenes), 43)
+        self.assertEqual(validate(script), [])
+
+    def test_auto_no_client_gives_long_skeleton(self):
+        script = tp.write_script("Rừng Mưa", scene_count=None)
+        self.assertEqual(len(script.scenes), 20)
+        self.assertEqual(validate(script), [])
+
+    def test_auto_target_scenes_in_instruction(self):
+        seen = {}
+
+        def fake_ask(client, text, timeout=180.0):
+            seen["text"] = text
+            return self.FAKE_YAML_AUTO
+
+        with patch.object(tp, "ask_muse_text", side_effect=fake_ask):
+            tp.write_script("Rừng Mưa", scene_count=None, target_scenes=48,
+                            client=object())
+        self.assertIn("roughly 48 scenes", seen["text"])
+
+    def test_auto_research_inserted_in_instruction(self):
+        seen = {}
+
+        def fake_ask(client, text, timeout=180.0):
+            seen["text"] = text
+            return self.FAKE_YAML_AUTO
+
+        with patch.object(tp, "ask_muse_text", side_effect=fake_ask):
+            tp.write_script("Rừng Mưa", scene_count=None,
+                            research="Ếch độc dài hai phân, độc giết mười người.",
+                            client=object())
+        self.assertIn("Ếch độc dài hai phân", seen["text"])
+        self.assertIn("researched source material", seen["text"])
+
+
+class TestResearchTopic(unittest.TestCase):
+    def test_returns_fact_sheet(self):
+        with patch.object(tp, "ask_muse_text",
+                          return_value="Kích thước: 30m. Nặng: 200 tấn."):
+            out = tp.research_topic("Cá voi xanh", client=object())
+        self.assertIn("200 tấn", out)
+
+    def test_failure_returns_empty_not_raise(self):
+        with patch.object(tp, "ask_muse_text",
+                          side_effect=RuntimeError("gateway down")):
+            out = tp.research_topic("Cá voi xanh", client=object())
+        self.assertEqual(out, "")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -117,6 +117,34 @@ $("#account-form").addEventListener("submit", async (e) => {
   }
 });
 
+$("#notify-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const msg = $("#notify-msg");
+  msg.className = "msg"; msg.textContent = "Đang kiểm tra token và gửi tin thử…";
+  try {
+    const r = await api("/api/notify/save", {
+      method: "POST",
+      body: JSON.stringify({ token: fd.get("token"), chat_id: fd.get("chat_id") }),
+    });
+    msg.className = "msg ok";
+    msg.textContent = `Đã lưu Telegram (bot ${r.bot}) — tin thử đã tới. Khi build hết acc, bạn sẽ nhận tin nhắn để thêm acc mới.`;
+  } catch (err) {
+    msg.className = "msg err"; msg.textContent = err.message;
+  }
+});
+
+$("#btn-notify-test").addEventListener("click", async () => {
+  const msg = $("#notify-msg");
+  msg.className = "msg"; msg.textContent = "Đang gửi tin thử…";
+  try {
+    await api("/api/notify/test", { method: "POST", body: "{}" });
+    msg.className = "msg ok"; msg.textContent = "Đã gửi tin thử.";
+  } catch (err) {
+    msg.className = "msg err"; msg.textContent = err.message;
+  }
+});
+
 // ---------------- scripts ----------------
 // Tool chỉ làm phim tài liệu: chỉ liệt kê kịch bản documentary (kèm file
 // lỗi chưa xác định được kind, để người dùng vẫn thấy và sửa được).
@@ -256,6 +284,28 @@ async function loadJobs() {
 
 // ---------------- create: topics + write-script (phim tài liệu) ----------------
 let createdScriptPath = null;
+$("#btn-auto-create").addEventListener("click", async () => {
+  const msg = $("#auto-msg");
+  const minutes = parseInt($("#auto-minutes").value, 10) || 0;
+  msg.className = "msg"; msg.textContent = "Đang chọn chủ đề, nghiên cứu rồi viết kịch bản dài… (có thể mất 2–4 phút)";
+  try {
+    const r = await api("/api/auto-create", { method: "POST", body: JSON.stringify({ minutes }) });
+    createdScriptPath = r.path;
+    msg.className = "msg ok";
+    let text = `Đã tạo: ${r.title} — chủ đề “${r.topic}”, ${r.scenes} cảnh, tổng ${r.total_duration}s (~${Math.round(r.total_duration / 60)} phút, mục tiêu ${r.minutes_target || "tự quyết"} phút, acc ${r.account}).`;
+    if (r.account_warnings && r.account_warnings.length) {
+      text += " ⚠️ " + r.account_warnings.map((w) => `Acc ${w.account} KHÔNG KẾT NỐI ĐƯỢC (${w.error}) — đã dùng acc khác thay thế.`).join(" ");
+    }
+    msg.textContent = text;
+    $("#create-result").style.display = "";
+    $("#create-result-title").textContent = `${r.title} — ${r.path}`;
+    const content = await api(`/api/scripts/content?path=${encodeURIComponent(r.path)}`);
+    $("#create-result-script").textContent = content.content;
+    loadScripts();
+  } catch (e) {
+    msg.className = "msg err"; msg.textContent = e.message;
+  }
+});
 $("#btn-suggest-topics").addEventListener("click", async () => {
   const msg = $("#create-msg");
   const box = $("#topics-list");

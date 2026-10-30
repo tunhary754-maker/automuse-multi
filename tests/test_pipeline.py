@@ -51,7 +51,7 @@ class _FailingClient:
 
 
 class _NoPickManager(AccountManager):
-    def pick(self, names=None):
+    def pick(self, names=None, exclude=None):
         return None
 
 
@@ -114,11 +114,13 @@ class TestNoSilentMockFallback(unittest.TestCase):
     def test_cooldown_mid_scene_raises_instead_of_mock(self):
         """Tái hiện đúng log của user: acc đã lỗi 2 lần, lần lỗi thứ 3
         kích hoạt cooldown 5 phút -> lần thử sau phải báo đang nghỉ,
-        không được sinh clip mock giả mạo clip thật."""
+        không được sinh clip mock giả mạo clip thật. Đặt max_wait_rounds=0
+        để test không chờ cooldown thật (hành vi chờ được test riêng)."""
         out = Path(tempfile.mkdtemp())
         mgr = _manager_with(Account(name="acc test", jobs_failed=2))
         settings = {"generation": {"delay_between_jobs": 0,
-                                   "max_retries_per_scene": 3}}
+                                   "max_retries_per_scene": 3,
+                                   "max_wait_rounds": 0}}
         with mock.patch("automuse.pipeline.build_client",
                         return_value=_FailingClient()):
             with self.assertRaises(RuntimeError) as ctx:
@@ -126,6 +128,230 @@ class TestNoSilentMockFallback(unittest.TestCase):
                                account_names=["acc test"], tracker=_tracker())
         self.assertIn("đang nghỉ sau", str(ctx.exception))
         self.assertEqual(list(out.rglob("*.mp4")), [])
+
+
+class _WorkingClient:
+    """Ghi file clip giả vào out_path (đủ để pipeline chuyển thành đích)."""
+
+    def generate_video(self, **kwargs):
+        out = Path(kwargs["out_path"])
+        out.write_bytes(b"fake-clip")
+
+
+class _FlakyClient:
+    """Lỗi N lần đầu rồi mới ghi clip — mô phỏng acc hồi sau cooldown."""
+
+    def __init__(self, fail_times: int = 1):
+        self.calls = 0
+        self.fail_times = fail_times
+
+    def generate_video(self, **kwargs):
+        self.calls += 1
+        if self.calls <= self.fail_times:
+            raise RuntimeError("gateway chập chờn")
+        Path(kwargs["out_path"]).write_bytes(b"fake-clip")
+
+
+def _manager_with_many(names: list[str], **kwargs) -> AccountManager:
+    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".json")
+    tmp.close()
+    Path(tmp.name).write_text('{"accounts": []}', encoding="utf-8")
+    mgr = AccountManager(Path(tmp.name))
+    mgr.accounts = [Account(name=n, **kwargs) for n in names]
+    mgr.save()
+    return mgr
+
+
+class TestFailoverContinue(unittest.TestCase):
+    """Yêu cầu 2026-10-30: hết quota acc này thì chuyển acc khác làm tiếp
+    nhiệm vụ dở dang, không dừng build."""
+
+    def test_failover_to_second_account_same_scene(self):
+        """acc1 lỗi -> lần thử sau của CÙNG cảnh dùng acc2 ngay (không
+        quay lại acc1), cảnh xong với acc2."""
+        out = Path(tempfile.mkdtemp())
+        mgr = _manager_with_many(["acc1", "acc2"])
+        settings = {"generation": {"delay_between_jobs": 0,
+                                   "max_retries_per_scene": 3,
+                                   "max_wait_rounds": 0}}
+
+        def _client(account, settings, mock=False):
+            return _FailingClient() if account.name == "acc1" else _WorkingClient()
+
+        with mock.patch("automuse.pipeline.build_client",
+                        side_effect=_client), \
+                mock.patch("automuse.pipeline.extend_clip",
+                           side_effect=lambda tmp, dest, target: tmp):
+            clips, infos = generate_clips(_script(), out, settings, mgr,
+                                          mock=False, tracker=_tracker())
+        self.assertEqual(len(clips), 1)
+        self.assertTrue(clips[0].exists())
+        self.assertEqual(infos[0]["account"], "acc2")
+        acc1 = [a for a in mgr.accounts if a.name == "acc1"][0]
+        self.assertEqual(acc1.jobs_failed, 1)
+
+    def test_wait_for_cooldown_then_continue(self):
+        """Acc duy nhất vào cooldown sau lỗi -> build CHỜ cooldown hết rồi
+        làm tiếp cảnh đó (đồng hồ giả để không chờ 5 phút thật)."""
+        out = Path(tempfile.mkdtemp())
+        mgr = _manager_with_many(["acc1"], jobs_failed=2)
+        settings = {"generation": {"delay_between_jobs": 0,
+                                   "max_retries_per_scene": 3}}
+        flaky = _FlakyClient(fail_times=1)
+        fake_now = [1_000_000.0]
+        slept: list[float] = []
+
+        def _fake_sleep(secs):
+            slept.append(secs)
+            fake_now[0] += secs
+
+        with mock.patch("automuse.pipeline.build_client",
+                        return_value=flaky), \
+                mock.patch("automuse.pipeline.extend_clip",
+                           side_effect=lambda tmp, dest, target: tmp), \
+                mock.patch("time.time", side_effect=lambda: fake_now[0]), \
+                mock.patch("time.sleep", side_effect=_fake_sleep):
+            clips, infos = generate_clips(_script(), out, settings, mgr,
+                                          mock=False, tracker=_tracker())
+        self.assertEqual(len(clips), 1)
+        self.assertEqual(infos[0]["account"], "acc1")
+        # Có một lần chờ ~302s (cooldown 300s + 2s đệm) rồi mới làm tiếp.
+        self.assertTrue(any(s > 300 for s in slept),
+                        f"không thấy lượt chờ cooldown trong {slept}")
+        self.assertEqual(flaky.calls, 2)
+
+
+class _GatewayFailingClient:
+    """Lỗi tầng gateway (không kết nối được) — như acc1: login OK nhưng
+    gateway thiếu authToken."""
+
+    def generate_video(self, **kwargs):
+        from automuse.gateway import GatewayError
+        raise GatewayError("__HATCH_GATEWAY_INIT__ thiếu khóa authToken")
+
+
+class TestConnectionErrorReport(unittest.TestCase):
+    """Yêu cầu 2026-10-30: acc nào không kết nối được thì báo lỗi luôn
+    (log + Telegram), dù build vẫn làm tiếp bằng acc khác."""
+
+    def test_is_connection_error(self):
+        from automuse.gateway import GatewayError
+        from automuse.pipeline import is_connection_error
+        self.assertTrue(is_connection_error(
+            GatewayError("__HATCH_GATEWAY_INIT__ thiếu khóa authToken")))
+        self.assertTrue(is_connection_error(
+            RuntimeError("Không thấy __HATCH_GATEWAY_INIT__ trong trang chủ")))
+        self.assertFalse(is_connection_error(RuntimeError("prompt bị từ chối")))
+
+    def test_reports_once_per_account_then_failover(self):
+        """2 cảnh: acc1 lỗi gateway ở cả 2 cảnh -> chỉ báo 1 lần (cảnh 1),
+        cả 2 cảnh đều xong bằng acc2."""
+        out = Path(tempfile.mkdtemp())
+        mgr = _manager_with_many(["acc1", "acc2"])
+        script = Script(title="Test", scenes=[
+            Scene(id="s01", title="Một", duration=5, visual="v1"),
+            Scene(id="s02", title="Hai", duration=5, visual="v2"),
+        ])
+        settings = {"generation": {"delay_between_jobs": 0,
+                                   "max_retries_per_scene": 3,
+                                   "max_wait_rounds": 0}}
+        sent: list[str] = []
+
+        def _client(account, settings, mock=False):
+            return _GatewayFailingClient() if account.name == "acc1" else _WorkingClient()
+
+        with mock.patch("automuse.pipeline.build_client",
+                        side_effect=_client), \
+                mock.patch("automuse.pipeline.extend_clip",
+                           side_effect=lambda tmp, dest, target: tmp), \
+                mock.patch("automuse.pipeline.telegram_configured",
+                           return_value=True), \
+                mock.patch("automuse.pipeline.send_telegram",
+                           side_effect=lambda t: sent.append(t) or True):
+            clips, infos = generate_clips(script, out, settings, mgr,
+                                          mock=False, tracker=_tracker())
+        self.assertEqual(len(clips), 2)
+        self.assertTrue(all(i["account"] == "acc2" for i in infos))
+        self.assertEqual(len(sent), 1)
+        self.assertIn("acc1", sent[0])
+        self.assertIn("KHÔNG KẾT NỐI ĐƯỢC", sent[0])
+
+
+class TestWaitForNewAccount(unittest.TestCase):
+    """Hết acc thật + có Telegram -> báo tin, chờ user thêm acc mới, rồi
+    làm tiếp cảnh dở dang bằng acc mới (không cần chạy lại build)."""
+
+    def test_telegram_notify_and_continue_with_new_account(self):
+        out = Path(tempfile.mkdtemp())
+        mgr = _manager_with_many(["acc1"], jobs_failed=2)
+        settings = {"generation": {"delay_between_jobs": 0,
+                                   "max_retries_per_scene": 3,
+                                   "max_wait_rounds": 0,
+                                   "wait_for_new_account_minutes": 1,
+                                   "new_account_poll_seconds": 1}}
+        sent: list[str] = []
+
+        def _client(account, settings, mock=False):
+            return _FailingClient() if account.name == "acc1" else _WorkingClient()
+
+        orig_reload = mgr.reload_new
+
+        def _reload_and_add():
+            # Mô phỏng user thêm acc2 qua Web Studio trong lúc build chờ.
+            if not mgr.get("acc2"):
+                mgr.accounts.append(Account(name="acc2"))
+                return ["acc2"]
+            return orig_reload()
+
+        with mock.patch("automuse.pipeline.build_client",
+                        side_effect=_client), \
+                mock.patch("automuse.pipeline.extend_clip",
+                           side_effect=lambda tmp, dest, target: tmp), \
+                mock.patch("automuse.notify.telegram_configured",
+                           return_value=True), \
+                mock.patch("automuse.notify.send_telegram",
+                           side_effect=lambda t: sent.append(t) or True), \
+                mock.patch.object(mgr, "reload_new",
+                                  side_effect=_reload_and_add):
+            clips, infos = generate_clips(_script(), out, settings, mgr,
+                                          mock=False, tracker=_tracker())
+        self.assertEqual(len(clips), 1)
+        self.assertEqual(infos[0]["account"], "acc2")
+        self.assertEqual(len(sent), 1)
+        self.assertIn("dừng ở cảnh s01", sent[0])
+
+    def test_no_telegram_config_raises_without_waiting(self):
+        """Chưa cấu hình Telegram -> không chờ acc mới, dừng rõ ràng ngay."""
+        out = Path(tempfile.mkdtemp())
+        mgr = _manager_with_many(["acc1"], jobs_failed=2)
+        settings = {"generation": {"delay_between_jobs": 0,
+                                   "max_retries_per_scene": 3,
+                                   "max_wait_rounds": 0}}
+        with mock.patch("automuse.pipeline.build_client",
+                        return_value=_FailingClient()), \
+                mock.patch("automuse.notify.telegram_configured",
+                           return_value=False), \
+                mock.patch("automuse.notify.send_telegram") as sent:
+            with self.assertRaises(RuntimeError):
+                generate_clips(_script(), out, settings, mgr,
+                               mock=False, tracker=_tracker())
+        sent.assert_not_called()
+
+    def test_reload_new_preserves_running_state(self):
+        """reload_new chỉ thêm acc mới, không reset jobs_failed/cooldown
+        của acc đang chạy."""
+        import json
+        mgr = _manager_with_many(["acc1"], jobs_failed=2)
+        acc1 = mgr.get("acc1")
+        acc1.cooldown_until = 9999999999.0
+        data = json.loads(Path(mgr.path).read_text(encoding="utf-8"))
+        data["accounts"].append({"name": "acc2"})
+        Path(mgr.path).write_text(json.dumps(data), encoding="utf-8")
+        added = mgr.reload_new()
+        self.assertEqual(added, ["acc2"])
+        self.assertEqual(mgr.get("acc1").jobs_failed, 2)
+        self.assertEqual(mgr.get("acc1").cooldown_until, 9999999999.0)
+        self.assertEqual(mgr.reload_new(), [])
 
 
 def _lipsync_script(tmp: Path) -> Path:

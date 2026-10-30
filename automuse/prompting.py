@@ -425,7 +425,14 @@ def ask_muse_text(client, user_text: str, timeout: float = 180.0) -> str:
     bufs: dict[int, str] = {sub_id: "", send_id: ""}
     closed: set[int] = set()
     deadline = time.time() + timeout
-    text_parts: list[str] = []
+    # Delta có "seq" (số thứ tự event, xem docs/gateway-protocol.md): ráp
+    # theo seq và khử trùng, vì reply dài có nhiều chunk — delta tới lệch
+    # thứ tự hoặc lặp lại sẽ xáo trộn/nhân đôi text nếu chỉ append theo
+    # thứ tự tới (lỗi 2026-10-30: kịch bản 18 cảnh trả về title nhân đôi,
+    # xáo trộn ký tự, YAML không parse được). Event không có seq (fake
+    # test) thì giữ thứ tự tới như cũ.
+    text_by_seq: dict[int, str] = {}
+    text_unseq: list[str] = []
     acked = False
     done = False
     while time.time() < deadline and not done:
@@ -469,8 +476,22 @@ def ask_muse_text(client, user_text: str, timeout: float = 180.0) -> str:
                 continue
             if not isinstance(obj, dict) or obj.get("type") == "res":
                 continue  # ack của subscribe, không chứa text
-            if obj.get("event") == "delta.text_append":
-                text_parts.append(_event_text(obj))
+            if obj.get("event") == "delta.message_start":
+                # Reply mới bắt đầu: bỏ text của message cũ nếu subscribe
+                # replay lại event cũ — chỉ giữ reply hiện tại.
+                text_by_seq.clear()
+                text_unseq.clear()
+            elif obj.get("event") == "delta.text_append":
+                text = _event_text(obj)
+                seq = obj.get("seq")
+                try:
+                    seq = int(seq) if seq is not None else None
+                except (TypeError, ValueError):
+                    seq = None
+                if seq is not None:
+                    text_by_seq.setdefault(seq, text)
+                else:
+                    text_unseq.append(text)
             elif obj.get("event") == "delta.message_done":
                 done = True
                 break
@@ -481,7 +502,10 @@ def ask_muse_text(client, user_text: str, timeout: float = 180.0) -> str:
             client._validate_ack(json.loads(bufs[send_id].strip()), "chat.stream")
         except ValueError:
             pass
-    return "".join(text_parts).strip()
+    if text_by_seq:
+        ordered = "".join(text_by_seq[s] for s in sorted(text_by_seq))
+        return (ordered + "".join(text_unseq)).strip()
+    return "".join(text_unseq).strip()
 
 
 def parse_prompt_reply(text: str) -> list[ScenePrompt]:

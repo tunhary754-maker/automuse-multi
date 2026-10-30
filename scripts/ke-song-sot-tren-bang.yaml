@@ -1,0 +1,130 @@
+title: Kẻ Sống Sót Trên Băng, Hai Đầu Trái Đất Cùng Một Cuộc Chiến
+kind: documentary
+aspect: '16:9'
+default_voice: narrator
+fps: 30
+scenes:
+- id: s01
+  title: Hai Đầu Trái Đất Đầy Băng
+  duration: 10
+  visual: A massive polar bear walks across cracked Arctic sea ice under a pale sky,
+    with open water glinting behind it.
+  narration: Hai đầu Trái Đất, băng âm 60 độ, nhưng gấu Bắc Cực nặng 720 kg vẫn săn
+    mồi trên băng.
+- id: s02
+  title: Mỡ, Lông Và Da Đen
+  duration: 10
+  visual: A close-up of a polar bear's thick white fur and dark nose in falling snow,
+    its body steaming slightly in cold air.
+  narration: Gấu Bắc Cực có lớp mỡ dày 10 cm, lông trong suốt và da đen hấp thụ nắng.
+- id: s03
+  title: Chờ Bên Lỗ Thở
+  duration: 10
+  visual: A polar bear lies motionless beside a small breathing hole in Arctic sea
+    ice, waiting patiently for a seal to surface.
+  narration: Gấu Bắc Cực ngửi thấy hải cẩu từ 1 km, chờ bất động bên lỗ thở trên băng.
+- id: s04
+  title: Bơi Giữa Các Tảng Băng
+  duration: 10
+  visual: A polar bear swims powerfully through icy Arctic water between floating
+    ice floes, its head above the surface.
+  narration: Gấu Bắc Cực bơi 10 km mỗi giờ, từng bơi hơn 100 km giữa các tảng băng.
+- id: s05
+  title: Tám Tháng Trong Hang Tuyết
+  duration: 10
+  visual: A mother polar bear nurses two tiny cubs inside a dark snow den, curled
+    protectively around them.
+  narration: Gấu mẹ Bắc Cực nhịn ăn 8 tháng trong hang tuyết, sinh đôi con chỉ nặng
+    1 kg.
+- id: s06
+  title: Đám Đông Giữa Bão
+  duration: 10
+  visual: Thousands of emperor penguins press together in a dense huddle during an
+    Antarctic blizzard, snow blowing sideways.
+  narration: Chim cánh cụt hoàng đế tụ thành đám đông, giảm mất nhiệt 50% giữa bão
+    âm 60 độ.
+- id: s07
+  title: Trứng Trên Chân Cha
+  duration: 10
+  visual: A male emperor penguin stands still in polar darkness, balancing a single
+    egg on his feet beneath his brood pouch.
+  narration: Chim trống hoàng đế ấp trứng 75 ngày trên chân dưới túi ấp, nhịn ăn hoàn
+    toàn.
+- id: s08
+  title: Lặn Sâu Dưới Băng
+  duration: 10
+  visual: An emperor penguin dives gracefully beneath clear Antarctic sea ice, chasing
+    fish in deep blue water.
+  narration: Chim cánh cụt hoàng đế lặn sâu 564 mét, nín thở 32 phút để bắt cá dưới
+    băng.
+- id: s09
+  title: Sáu Mươi Km Tới Nơi Sinh Sản
+  duration: 10
+  visual: A line of emperor penguins waddles across flat frozen sea toward a distant
+    breeding colony in winter light.
+  narration: Chim cánh cụt hoàng đế đi bộ 60 km trên băng, tới nơi sinh sản giữa mùa
+    đông.
+- id: s10
+  title: Cáo Nhỏ Chịu Lạnh Lớn
+  duration: 10
+  visual: A small white Arctic fox stands in deep snow during a blizzard, its thick
+    fur ruffled by wind.
+  narration: Cáo Bắc Cực lông dày, trắng mùa đông, nặng 9 kg, sống dưới âm 46 độ.
+- id: s11
+  title: Nghe Con Mồi Dưới Tuyết
+  duration: 10
+  visual: An Arctic fox tilts its head, listening intently, then leaps headfirst into
+    soft snow after a lemming.
+  narration: Cáo Bắc Cực nặng 9 kg nghe chuột lemming dưới tuyết, nhảy xuyên tuyết
+    để bắt mồi.
+- id: s12
+  title: Hành Trình Ba Nghìn Km
+  duration: 10
+  visual: A lone Arctic fox trots steadily across endless white tundra, following
+    a faint trail in fresh snow.
+  narration: Một con cáo Bắc Cực đi 3.506 km trong 76 ngày, tìm mồi khắp vùng băng.
+- id: s13
+  title: Hang Với Trăm Lối Ra
+  duration: 10
+  visual: Arctic fox pups tumble out of a tundra den entrance in spring, while an
+    adult watches nearby.
+  narration: Cáo Bắc Cực mang thai 57 ngày, sinh 8 con trong hang có hơn 100 lối ra.
+- id: s14
+  title: Săn Dưới Trần Băng
+  duration: 10
+  visual: A Weddell seal swims beneath Antarctic sea ice, blowing air into a crack
+    to flush small fish from hiding.
+  narration: Hải cẩu Weddell lặn 400 mét dưới băng, thổi khí vào khe để lùa cá ra.
+- id: s15
+  title: Răng Mài Lỗ Thở
+  duration: 10
+  visual: A Weddell seal surfaces at a small breathing hole in sea ice, exhaling mist
+    into freezing air.
+  narration: Hải cẩu Weddell sống 30 năm, dùng răng mài lỗ thở dù răng mòn dần.
+- id: s16
+  title: Sữa Sáu Mươi Phần Trăm Chất Béo
+  duration: 10
+  visual: A Weddell seal pup nurses on fast ice beside its mother, its body already
+    round and thick with blubber.
+  narration: Hải cẩu Weddell con nặng 25 kg, bú sữa 60% chất béo, tăng gấp đôi sau
+    10 ngày.
+- id: s17
+  title: Băng Vỡ Sớm, Chim Giảm Nửa
+  duration: 10
+  visual: An emperor penguin colony stands on fractured fast ice, with open dark water
+    spreading behind the birds.
+  narration: Chim cánh cụt hoàng đế sinh sản trên băng, có thể giảm một nửa tới năm
+    2080.
+- id: s18
+  title: Hai Mươi Sáu Nghìn Con Gấu
+  duration: 10
+  visual: A lone polar bear stands on a shrinking ice floe, looking across open Arctic
+    water toward distant land.
+  narration: Gấu Bắc Cực còn 26.000 con, được xếp dễ tổn thương vì băng biển tan dần.
+- id: s19
+  title: Băng Không Phải Kẻ Thù
+  duration: 10
+  visual: A polar bear rests calmly on solid sea ice at sunset, with its cubs playing
+    nearby on the frozen surface.
+  narration: Gấu Bắc Cực nặng 720 kg chứng minh băng không phải kẻ thù, mà là nhà
+    và sàn săn.

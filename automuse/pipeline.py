@@ -29,6 +29,7 @@ from .config import DEFAULT_CACHE_DIR, DEFAULT_OUTPUT_DIR, get_sync_key
 from .elevenlabs import build_elevenlabs, estimate_speech_duration
 from .lipsync import build_lipsync
 from .muse_client import build_client
+from .notify import send_telegram, telegram_configured
 from .script import Scene, Script, load_script, validate
 from .usage import UsageTracker
 from .video import (
@@ -55,6 +56,23 @@ def _scene_target_duration(scene: Scene, tts_duration: float) -> float:
     if tts_duration <= 0:
         return float(scene.duration)
     return max(float(scene.duration), tts_duration + 0.5)
+
+
+def is_connection_error(exc: Exception) -> bool:
+    """Acc có 'kết nối được' với Muse không?
+
+    Lỗi tầng gateway (GatewayError: handshake/RPC/stream, thiếu
+    __HATCH_GATEWAY_INIT__, thiếu authToken) = không kết nối được — khác
+    với lỗi sinh clip (prompt bị từ chối, timeout sinh...). Dùng để báo
+    lỗi NGAY khi acc chết, thay vì lặng lẽ chuyển acc khác.
+    """
+    from .gateway import GatewayError
+
+    if isinstance(exc, GatewayError):
+        return True
+    msg = str(exc)
+    return ("__HATCH_GATEWAY_INIT__" in msg or "authToken" in msg
+            or "phiên đăng nhập" in msg)
 
 
 def _describe_ineligible(pool, tracker, settings) -> str:
@@ -104,6 +122,8 @@ def generate_clips(
 
     clips: list[Path] = []
     infos: list[dict] = []
+    # Acc nào đã báo lỗi kết nối trong build này (báo 1 lần/acc, tránh spam).
+    reported_connection: set[str] = set()
     for scene in script.scenes:
         target = (scene_durations or {}).get(scene.id, float(scene.duration))
         dest = clips_dir / f"{scene.id}.mp4"
@@ -113,38 +133,112 @@ def generate_clips(
             infos.append({"id": scene.id, "account": "cached", "duration": target})
             continue
 
-        # -- giới hạn tuần: chỉ dùng acc còn quota, hết thì dừng rõ ràng --
-        eligible_names: list[str] | None = None
-        if mock:
-            if not tracker.has_budget("mock", settings):
-                r = tracker.remaining("mock", settings)
-                raise RuntimeError(
-                    f"Hết giới hạn tuần: đã dùng {r['videos']} video, "
-                    f"{r['minutes']} phút trong tuần {r['week']} — "
-                    "tăng limits.weekly_max_videos/minutes trong settings.yaml"
-                )
-        else:
-            pool = manager.enabled_accounts()
-            if account_names:
-                wanted = set(account_names)
-                pool = [a for a in pool if a.name in wanted]
-            if pool:
-                eligible = [
-                    a for a in pool
+        # -- Failover + làm tiếp: acc nào lỗi thì lượt sau ưu tiên acc khác
+        # (loại acc vừa lỗi khỏi lượt chọn của cảnh này); hết acc tạm thời
+        # (toàn bộ đang cooldown sau lỗi liên tiếp, vd: hết quota thật)
+        # thì CHỜ cooldown hết rồi làm tiếp, không dừng build — đúng yêu
+        # cầu "hết quota acc này chuyển acc khác làm tiếp nhiệm vụ dở
+        # dang". Chỉ dừng khi: không có acc nào, hết quota tuần thật
+        # (không phải cooldown — chờ cũng không giúp), hoặc chờ quá giới
+        # hạn. Clip đã sinh vẫn nằm trên đĩa, chạy lại với resume để làm
+        # tiếp nếu build vẫn dừng.
+        gen_cfg = settings.get("generation", {})
+        max_wait_rounds = int(gen_cfg.get("max_wait_rounds", 3))
+        max_wait_seconds = float(gen_cfg.get("max_wait_for_account_seconds", 1800))
+        if mock and not tracker.has_budget("mock", settings):
+            r = tracker.remaining("mock", settings)
+            raise RuntimeError(
+                f"Hết giới hạn tuần: đã dùng {r['videos']} video, "
+                f"{r['minutes']} phút trong tuần {r['week']} — "
+                "tăng limits.weekly_max_videos/minutes trong settings.yaml"
+            )
+        waited = 0.0
+        wait_rounds = 0
+
+        def _wait_for_cooldown(pool) -> bool:
+            """Chờ acc hết cooldown nếu còn lượt chờ. Trả True nếu đã chờ."""
+            nonlocal waited, wait_rounds
+            cooling = [a for a in pool if a.is_on_cooldown()]
+            if (not cooling or wait_rounds >= max_wait_rounds
+                    or waited >= max_wait_seconds):
+                return False
+            wait = min(max(0.0, a.cooldown_until - time.time())
+                       for a in cooling) + 2
+            wait = max(1.0, min(wait, max_wait_seconds - waited))
+            log(f"  ... {scene.id}: hết acc dùng được tạm thời, chờ "
+                f"~{int(wait)}s rồi làm tiếp "
+                f"(lượt chờ {wait_rounds + 1}/{max_wait_rounds})")
+            time.sleep(wait)
+            waited += wait
+            wait_rounds += 1
+            return True
+
+        def _wait_for_new_account(pool) -> bool:
+            """Hết acc thật: báo Telegram + chờ user thêm acc mới rồi làm tiếp.
+
+            Chỉ kích hoạt khi đã cấu hình Telegram và wait_for_new_account_
+            minutes > 0. Trả True nếu trong lúc chờ xuất hiện acc dùng được
+            (acc mới user thêm, hoặc acc cũ hết cooldown) — caller thử lại
+            cảnh này. Trả False nếu hết thời gian chờ (caller dừng build,
+            clip đã sinh vẫn còn, chạy lại với resume để làm tiếp).
+            """
+            from .notify import send_telegram, telegram_configured
+
+            wait_minutes = float(gen_cfg.get("wait_for_new_account_minutes", 240))
+            poll_seconds = float(gen_cfg.get("new_account_poll_seconds", 60))
+            if wait_minutes <= 0 or not telegram_configured():
+                return False
+            dead = _describe_ineligible(pool, tracker, settings)
+            send_telegram(
+                f"🎬 Build '{script.title}' dừng ở cảnh {scene.id}: {dead}\n"
+                f"Thêm tài khoản Muse mới (tab Tài khoản Muse hoặc "
+                f"`accounts add`) — build sẽ tự làm tiếp, không cần chạy lại."
+            )
+            log(f"  ... {scene.id}: đã báo Telegram, chờ acc mới tối đa "
+                f"{wait_minutes:g} phút...")
+            total_wait = wait_minutes * 60
+            waited_new = 0.0
+            added_names: set[str] = set()
+            while waited_new < total_wait:
+                slept = min(poll_seconds, total_wait - waited_new)
+                time.sleep(slept)
+                waited_new += slept
+                added_names.update(manager.reload_new())
+                candidates = manager.enabled_accounts()
+                if account_names:
+                    # Acc MỚI user thêm để cứu build này thì nhận luôn,
+                    # kể cả khi build ban đầu giới hạn acc khác.
+                    wanted = set(account_names) | added_names
+                    candidates = [a for a in candidates if a.name in wanted]
+                eligible_new = [
+                    a for a in candidates
                     if not a.is_on_cooldown() and tracker.has_budget(a, settings)
                 ]
-                if not eligible:
-                    raise RuntimeError(_describe_ineligible(pool, tracker, settings))
-                eligible_names = [a.name for a in eligible]
+                if eligible_new:
+                    log(f"  ... {scene.id}: đã có acc dùng được "
+                        f"({', '.join(a.name for a in eligible_new)}), làm tiếp.")
+                    return True
+                if added_names:
+                    log(f"  ... đã thấy acc mới ({', '.join(sorted(added_names))}) "
+                        f"nhưng chưa dùng được, chờ tiếp...")
+            send_telegram(
+                f"🎬 Build '{script.title}' vẫn chưa có acc mới sau "
+                f"{wait_minutes:g} phút, đã dừng ở cảnh {scene.id}. "
+                f"Chạy lại với resume để làm tiếp khi có acc."
+            )
+            return False
 
         last_error = ""
         done = False
-        for attempt in range(1, max_retries + 1):
-            account = manager.pick(eligible_names or account_names) if not mock else None
-            if account is None and not mock:
-                # pick() trả None khi không còn acc nào chọn được — vd: acc
-                # duy nhất vừa vào cooldown sau lần lỗi trước. Đừng lặng lẽ
-                # rơi sang mock client rồi sinh clip giả mạo clip thật.
+        while not done:
+            # Tính lại acc dùng được mỗi vòng (cooldown có thể vừa hết).
+            pool: list = []
+            eligible_names: list[str] | None = None
+            if not mock:
+                pool = manager.enabled_accounts()
+                if account_names:
+                    wanted = set(account_names)
+                    pool = [a for a in pool if a.name in wanted]
                 if not pool:
                     raise RuntimeError(
                         "Không có tài khoản nào dùng được"
@@ -152,40 +246,93 @@ def generate_clips(
                            if account_names else "")
                         + ". Thêm acc bằng `accounts add`."
                     )
-                raise RuntimeError(_describe_ineligible(pool, tracker, settings))
-            client = build_client(account, settings, mock=mock)
-            who = account.name if account else "mock"
-            log(f"{scene.id} (lần {attempt}/{max_retries}) qua acc '{who}' — {scene.title}")
-            try:
-                tmp = clips_dir / f"{scene.id}.tmp.mp4"
-                client.generate_video(
-                    prompt=scene.visual,
-                    aspect=script.aspect,
-                    duration=max(1, math.ceil(target)),
-                    reference_image=scene.reference_image or None,
-                    out_path=tmp,
-                )
-                # Kéo dài clip nếu lời thoại dài hơn clip sinh ra
-                extended = extend_clip(tmp, dest, target)
-                if extended == tmp:
-                    tmp.replace(dest)  # clip đã đủ dài, chuyển file tạm thành đích
-                elif tmp.exists():
-                    tmp.unlink(missing_ok=True)
-                if account:
-                    manager.mark_success(account)
-                    tracker.record(account.name, "video", target, project=script.title)
-                clips.append(dest)
-                infos.append({"id": scene.id, "account": who, "duration": target})
-                done = True
+                eligible = [
+                    a for a in pool
+                    if not a.is_on_cooldown() and tracker.has_budget(a, settings)
+                ]
+                if not eligible:
+                    if _wait_for_cooldown(pool):
+                        continue
+                    if _wait_for_new_account(pool):
+                        continue
+                    raise RuntimeError(_describe_ineligible(pool, tracker, settings))
+                eligible_names = [a.name for a in eligible]
+
+            failed_this_round: set[str] = set()
+            for attempt in range(1, max_retries + 1):
+                account = (manager.pick(eligible_names,
+                                        exclude=failed_this_round)
+                           if not mock else None)
+                if account is None and not mock:
+                    # Hết acc trong vòng này (tất cả vừa lỗi/cooldown) —
+                    # ra vòng ngoài để chờ hoặc dừng rõ ràng, đừng lặng lẽ
+                    # rơi sang mock client rồi sinh clip giả mạo clip thật.
+                    last_error = "Không còn acc nào dùng được trong lượt này"
+                    break
+                client = build_client(account, settings, mock=mock)
+                who = account.name if account else "mock"
+                log(f"{scene.id} (lần {attempt}/{max_retries}) qua acc '{who}' — {scene.title}")
+                try:
+                    tmp = clips_dir / f"{scene.id}.tmp.mp4"
+                    client.generate_video(
+                        prompt=scene.visual,
+                        aspect=script.aspect,
+                        duration=max(1, math.ceil(target)),
+                        reference_image=scene.reference_image or None,
+                        out_path=tmp,
+                    )
+                    # Kéo dài clip nếu lời thoại dài hơn clip sinh ra
+                    extended = extend_clip(tmp, dest, target)
+                    if extended == tmp:
+                        tmp.replace(dest)  # clip đã đủ dài, chuyển file tạm thành đích
+                    elif tmp.exists():
+                        tmp.unlink(missing_ok=True)
+                    if account:
+                        manager.mark_success(account)
+                        tracker.record(account.name, "video", target, project=script.title)
+                    clips.append(dest)
+                    infos.append({"id": scene.id, "account": who, "duration": target})
+                    done = True
+                    break
+                except Exception as e:  # noqa: BLE001 - retry acc khác
+                    last_error = str(e)
+                    log(f"  ! Lỗi: {last_error}")
+                    if account:
+                        manager.mark_failure(account)
+                        failed_this_round.add(account.name)
+                        # Acc không kết nối được thì BÁO LỖI LUÔN (log nổi
+                        # bật + Telegram nếu có) — dù build vẫn làm tiếp
+                        # bằng acc khác, user phải biết acc này chết để sửa
+                        # cookie, không lặng lẽ bỏ qua. Báo 1 lần/acc/build.
+                        if (is_connection_error(e)
+                                and account.name not in reported_connection):
+                            reported_connection.add(account.name)
+                            warn = (
+                                f"⚠️ Acc '{account.name}' KHÔNG KẾT NỐI ĐƯỢC: "
+                                f"{last_error} — build '{script.title}' đang "
+                                f"làm tiếp bằng acc khác."
+                            )
+                            log(warn)
+                            if telegram_configured():
+                                send_telegram(warn + " Kiểm tra lại cookie "
+                                                   "của acc này khi rảnh.")
+                    time.sleep(delay)
+            if done:
                 break
-            except Exception as e:  # noqa: BLE001 - retry acc khác
-                last_error = str(e)
-                log(f"  ! Lỗi: {last_error}")
-                if account:
-                    manager.mark_failure(account)
-                time.sleep(delay)
-        if not done:
-            raise RuntimeError(f"{scene.id} thất bại sau {max_retries} lần: {last_error}")
+            # Hết lượt thử mà chưa xong: mock không có cooldown nên dừng
+            # ngay; acc thật thì chờ cooldown, rồi chờ acc mới qua Telegram,
+            # rồi mới dừng. Khi dừng hẳn mà vẫn còn acc đang nghỉ thì kèm
+            # lý do cooldown vào lỗi (để không đổ oan cho hết quota tuần).
+            if mock:
+                raise RuntimeError(f"{scene.id} thất bại sau {max_retries} lần: {last_error}")
+            if _wait_for_cooldown(pool):
+                continue
+            if _wait_for_new_account(pool):
+                continue
+            msg = f"{scene.id} thất bại sau {max_retries} lần: {last_error}"
+            if any(a.is_on_cooldown() for a in pool):
+                msg += ". " + _describe_ineligible(pool, tracker, settings)
+            raise RuntimeError(msg)
         time.sleep(delay)
     return clips, infos
 

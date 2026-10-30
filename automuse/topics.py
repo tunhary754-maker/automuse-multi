@@ -142,6 +142,79 @@ SCRIPT_WRITER_INSTRUCTION = (
 )
 
 
+# Chế độ tự quyết (kịch bản dài): Muse tự chọn số cảnh và thời lượng từng
+# cảnh theo câu chuyện, thay vì nhận số cố định. Dùng khi gọi write_script
+# với scene_count=None (nút "Tạo tập mới tự động" trên Web Studio).
+# {scene_guidance} = mục tiêu số cảnh (vd: "roughly 15 to 30 scenes" hoặc
+# "roughly 48 scenes" khi người dùng nhập số phút). {research_block} = dữ
+# liệu nghiên cứu chèn vào (rỗng nếu không có).
+SCRIPT_WRITER_INSTRUCTION_AUTO = (
+    "You write a COMPLETE, LONG video script in YAML for an AI video studio. "
+    "Topic: {topic}. Kind: {kind}. "
+    "Decide YOURSELF how many scenes the story needs to be complete and long: "
+    "{scene_guidance}, one shot per scene, covering the topic "
+    "from hook to thesis without rushing. "
+    "Decide YOURSELF each scene's duration in seconds: usually 10, shorter or "
+    "longer only where that beat genuinely needs it. "
+    "{research_block}"
+    "Reply with raw YAML only (optionally inside one ```yaml fence), in "
+    "exactly this format:\n"
+    "title: <Vietnamese title>\n"
+    "kind: {kind}\n"
+    "aspect: \"16:9\"\n"
+    "fps: 30\n"
+    "default_voice: narrator\n"
+    "scenes:\n"
+    "  - id: s01\n"
+    "    title: <scene title>\n"
+    "    duration: <seconds you choose for this scene>\n"
+    "    visual: <English visual description, one shot, concrete action>\n"
+    "    narration: <Vietnamese narration>\n"
+    "Rules:\n"
+    "- Narration must fit its scene's duration: about 20 words per 10 seconds, "
+    "scaled up or down with the duration you choose.\n"
+    "{kind_rules}\n"
+    "No markdown commentary outside the YAML."
+)
+
+
+# Nghiên cứu trước khi viết kịch bản dài: kịch bản càng dài càng cần nhiều
+# dữ liệu thật (cơ chế, số liệu, vòng đời), không thì Muse sẽ lặp ý hoặc
+# viết chung chung. Hỏi Muse tổng hợp fact sheet rồi đưa vào instruction
+# viết kịch bản (xem research_topic).
+TOPIC_RESEARCH_INSTRUCTION = (
+    "Research this wildlife documentary topic and return a structured fact "
+    "sheet in plain text (no YAML, no markdown commentary outside the facts). "
+    "Topic: {topic}. "
+    "Cover, with concrete numbers wherever they exist: key survival "
+    "mechanisms; body size, weight, speed, depth, distance, temperature; "
+    "life cycle stages (birth, growth, migration, reproduction, death); "
+    "diet and hunting; predators and threats; habitat and range; social "
+    "behavior; one or two surprising or counterintuitive facts; "
+    "conservation status if notable. "
+    "Prefer specific numbers over general statements. If a number is "
+    "uncertain, say so briefly instead of inventing precision."
+)
+
+
+def research_topic(topic: str, client, timeout: float = 180.0) -> str:
+    """Nhờ Muse nghiên cứu chủ đề, trả về fact sheet (chuỗi rỗng nếu lỗi).
+
+    Không bao giờ raise: nghiên cứu thất bại thì kịch bản vẫn viết được
+    (ít dữ liệu hơn), chỉ ghi log cảnh báo qua print để server log thấy.
+    """
+    try:
+        text = ask_muse_text(
+            client,
+            TOPIC_RESEARCH_INSTRUCTION.replace("{topic}", topic),
+            timeout=timeout,
+        )
+        return (text or "").strip()
+    except Exception as exc:  # noqa: BLE001 - nghiên cứu là bước tùy chọn
+        print(f"Cảnh báo: nghiên cứu chủ đề '{topic}' thất bại: {exc}")
+        return ""
+
+
 def _normalize_kind(kind: str) -> str:
     """Hướng không hợp lệ -> documentary (hướng mặc định của repo)."""
     return kind if kind in _KINDS else "documentary"
@@ -439,7 +512,13 @@ def _parse_script_yaml(text: str) -> tuple[str, dict]:
         if isinstance(data, dict) and isinstance(data.get("scenes"), list) \
                 and data["scenes"]:
             return cand, data
-    raise ValueError("Không parse được YAML kịch bản từ câu trả lời của Muse")
+    # Kèm đầu reply của Muse để chẩn đoán (YAML lỗi, reply bị cắt, hay
+    # Muse trả văn xuôi) — không có nó thì lỗi parse không gỡ được.
+    snippet = (text or "")[:300].replace("\n", " ")
+    raise ValueError(
+        "Không parse được YAML kịch bản từ câu trả lời của Muse "
+        f"(reply dài {len(text or '')} ký tự, đầu reply: {snippet!r})"
+    )
 
 
 def _skeleton_script(topic: str, kind: str, scene_count: int,
@@ -477,27 +556,60 @@ def _skeleton_script(topic: str, kind: str, scene_count: int,
     return script
 
 
-def write_script(topic: str, kind: str = "documentary", scene_count: int = 10,
+def write_script(topic: str, kind: str = "documentary", scene_count: int | None = 10,
                  scene_duration: int = 10, client=None,
-                 timeout: float = 180.0, strict: bool = False) -> Script:
+                 timeout: float = 180.0, strict: bool = False,
+                 target_scenes: int | None = None,
+                 research: str = "") -> Script:
     """Viết kịch bản HOÀN CHỈNH từ một chủ đề.
 
     Có ``client`` thì nhờ Muse viết YAML đúng format của automuse/script.py;
     không có client hoặc gọi Muse thất bại / YAML lỗi / script không hợp
     lệ thì ``strict=True`` raise ValueError, còn không thì trả về khung
     xương template (luôn validate).
+
+    ``scene_count=None`` là chế độ tự quyết (kịch bản dài): Muse tự chọn
+    số cảnh và thời lượng từng cảnh theo câu chuyện, thay vì nhận số cố
+    định. ``target_scenes`` đặt mục tiêu số cảnh cho chế độ tự quyết (vd:
+    người dùng nhập 8 phút -> ~48 cảnh); không đặt thì mục tiêu mặc định
+    khoảng 15–30 cảnh. ``research`` là fact sheet từ research_topic, chèn
+    vào instruction để kịch bản dài có đủ dữ liệu thật.
     """
     kind = _normalize_kind(kind)
     dur = int(scene_duration) if scene_duration and scene_duration > 0 else 10
+    auto = scene_count is None
     if client is not None:
-        instruction = (
-            SCRIPT_WRITER_INSTRUCTION
-            .replace("{topic}", topic)
-            .replace("{kind}", kind)
-            .replace("{scene_count}", str(max(1, int(scene_count))))
-            .replace("{scene_duration}", str(dur))
-            .replace("{kind_rules}", _SCRIPT_RULES_BY_KIND[kind])
-        )
+        if auto:
+            if target_scenes and int(target_scenes) > 0:
+                guidance = f"aim for roughly {int(target_scenes)} scenes"
+            else:
+                guidance = "aim for roughly 15 to 30 scenes"
+            research_block = ""
+            if (research or "").strip():
+                research_block = (
+                    "Use this researched source material for your facts and "
+                    "numbers; do not contradict it, and do not pad with "
+                    "generic filler when the material runs out — cover more "
+                    "of the material instead:\n"
+                    f"{research.strip()}\n"
+                )
+            instruction = (
+                SCRIPT_WRITER_INSTRUCTION_AUTO
+                .replace("{topic}", topic)
+                .replace("{kind}", kind)
+                .replace("{scene_guidance}", guidance)
+                .replace("{research_block}", research_block)
+                .replace("{kind_rules}", _SCRIPT_RULES_BY_KIND[kind])
+            )
+        else:
+            instruction = (
+                SCRIPT_WRITER_INSTRUCTION
+                .replace("{topic}", topic)
+                .replace("{kind}", kind)
+                .replace("{scene_count}", str(max(1, int(scene_count))))
+                .replace("{scene_duration}", str(dur))
+                .replace("{kind_rules}", _SCRIPT_RULES_BY_KIND[kind])
+            )
         try:
             reply = ask_muse_text(client, instruction, timeout=timeout)
             yaml_text, data = _parse_script_yaml(reply)
@@ -526,4 +638,5 @@ def write_script(topic: str, kind: str = "documentary", scene_count: int = 10,
         raise ValueError(
             "Không có client Muse để viết kịch bản (strict=True, "
             "không dùng khung xương template)")
-    return _skeleton_script(topic, kind, scene_count, dur)
+    # Chế độ tự quyết mà không có client: khung xương dài mặc định 20 cảnh.
+    return _skeleton_script(topic, kind, 20 if auto else scene_count, dur)

@@ -11,3 +11,6 @@ cache/
 __pycache__/
 *.pyc
 .DS_Store
+# File khởi động do scripts/setup_server.py tạo (chứa đường dẫn máy local).
+start-server.bat
+start-server.sh
