@@ -1,0 +1,401 @@
+title: Mùa Khô Rừng Amazon
+created_at: '2026-10-30T19:47:39.272666+00:00'
+topic: Rừng Amazon
+kind: documentary
+aspect: '16:9'
+default_voice: narrator
+fps: 30
+scenes:
+- id: s01
+  title: Rừng mưa mà sông cạn
+  duration: 10
+  visual: A wide Amazon river shrinks to a narrow channel, cracked mudbanks and shrinking
+    pools under harsh sunlight.
+  narration: Điều gì khiến rừng nhận hơn 2.000 mm mưa mỗi năm mà mùa khô sông cạn,
+    vũng thu hẹp dần?
+- id: s02
+  title: Báo đốm rình bên vũng cạn
+  duration: 10
+  visual: A jaguar crouches motionless beside a shrinking pool, watching animals approach
+    the remaining water.
+  narration: Báo đốm nặng tới 250 pound rình bên vũng cạn, nơi mọi con thú khát đều
+    phải tìm tới.
+- id: s03
+  title: Kapok rụng lá giữ nước
+  duration: 10
+  visual: Dry leaves fall from a tall kapok tree, its bare branches standing against
+    a pale dry-season sky.
+  narration: Cây kapok cao 30 đến 40 m rụng lá không phải vì chết, mà để sống, bớt
+    thoát hơi giữ nước.
+- id: s04
+  title: Nắng gắt trên tán rừng
+  duration: 10
+  visual: Harsh sunlight beats down on the forest canopy, heat shimmering above dry
+    leaves.
+  narration: Nắng gắt, nhiệt độ trung bình 24 đến 30 độ C, cây thoát hơi để tự làm
+    mát.
+- id: s05
+  title: Tán chính che nắng giữ ẩm
+  duration: 10
+  visual: Dense main canopy shades the forest floor, cool damp air lingering in the
+    understorey below.
+  narration: Tầng tán chính cao 20 đến 40 m che nắng, giữ ẩm cho tầng dưới khỏi khô
+    kiệt.
+- id: s06
+  title: Vẹt tìm đất sét lấy muối
+  duration: 10
+  visual: A scarlet macaw eats clay at a riverbank, its beak pressing into the mineral-rich
+    earth.
+  narration: Vẹt macaw đỏ tìm đất sét chứa natri gấp 40 lần thức ăn thực vật trong
+    mùa khô.
+- id: s07
+  title: Rễ sâu của cây hạt Brazil
+  duration: 10
+  visual: A towering Brazil nut tree stands on dry ground, its deep roots reaching
+    for hidden water below.
+  narration: Cây hạt Brazil dùng rễ sâu hút nước tới khoảng 12 m, đứng vững khi đất
+    mặt khô.
+- id: s08
+  title: Anaconda ẩn trong vũng cạn
+  duration: 10
+  visual: A green anaconda lies half-hidden in a shallow muddy pool, only its eyes
+    above the water.
+  narration: Trăn anaconda dài tới 9 m ẩn mình trong vũng cạn, chờ mồi tới uống nước.
+- id: s09
+  title: Sông thu hẹp thành dòng nhỏ
+  duration: 10
+  visual: Fish crowd into a narrow remaining stream, the wide riverbed exposed as
+    cracked mud around them.
+  narration: Sông trung lưu rộng trung bình 3 km nay thu hẹp, cá dồn về dòng nhỏ còn
+    nước.
+- id: s10
+  title: Rừng tự tạo mưa cho mình
+  duration: 10
+  visual: Mist rises from the dry forest canopy, thin clouds forming above the trees
+    at dawn.
+  narration: Rừng tự tạo 30 đến 50% lượng mưa của chính nó, [âm nhạc] ngay cả khi
+    trời khô hạn.
+- id: s11
+  title: Lười ăn lá ít năng lượng
+  duration: 10
+  visual: A three-toed sloth slowly chews leaves high in the canopy, barely moving
+    in the heat.
+  narration: Lười nặng 3 đến 6 kg ăn lá ít năng lượng, sống chậm để tiết kiệm từng
+    giọt nước.
+- id: s12
+  title: Si vẫn ra quả khi khan hiếm
+  duration: 10
+  visual: A strangler fig bears small fruit in the dry canopy, birds gathering where
+    other trees are bare.
+  narration: Khi thức ăn khan hiếm, cây si, một trong ít nhất 150 loài si ở Amazon,
+    vẫn ra quả.
+- id: s13
+  title: Một hecta ba trăm mười loài cây
+  duration: 10
+  visual: Many different tree species stand together on dry ground, some shedding
+    leaves while others stay green.
+  narration: Một hecta rừng có khoảng 310 loài cây, mỗi loài giữ nước theo một cách
+    khác nhau.
+- id: s14
+  title: Piranha tụ về vũng cạn
+  duration: 10
+  visual: Piranhas swarm in a shrinking pool, cleaning carcasses as the water level
+    drops.
+  narration: Cá piranha dài tới 30 cm tụ về vũng cạn, dọn xác khi nước rút và mồi
+    dồn lại.
+- id: s15
+  title: Lưu vực vẫn nối các dòng sông
+  duration: 10
+  visual: A narrow waterway connects drying pools across the vast basin, fish moving
+    through the last channels.
+  narration: Lưu vực rộng 7 triệu km2 vẫn nối sông, cá qua nhánh cạn tìm nước còn
+    lại.
+- id: s16
+  title: Rêu giữ ẩm tầng dưới
+  duration: 10
+  visual: Moss carpets a shaded trunk in dim understorey light, holding moisture on
+    its soft surface.
+  narration: Rêu nơi ánh sáng chỉ 2 đến 5% hấp thụ nước qua bề mặt, giữ ẩm cho vi
+    môi trường.
+- id: s17
+  title: Agouti chôn hạt để dành
+  duration: 10
+  visual: An agouti buries a seed in dry leaf litter, digging quickly before returning
+    to the shade.
+  narration: Agouti chôn rải rác khoảng 65% hạt nó mở, giấu thức ăn cho những ngày
+    khô hơn.
+- id: s18
+  title: Lá súng che mặt nước cạn
+  duration: 10
+  visual: A giant Victoria water lily leaf shades a shrinking pool, small fish sheltering
+    beneath it.
+  narration: Lá súng Victoria rộng tới 3 m che mặt nước, giữ bóng râm cho cá con trong
+    vũng cạn.
+- id: s19
+  title: Cây hạt Brazil sống hàng trăm năm
+  duration: 10
+  visual: An ancient Brazil nut tree towers over the dry forest, its crown still green
+    above bare branches.
+  narration: Cây hạt Brazil sống 500 năm trở lên, nhờ rễ sâu và tán cao vượt qua nhiều
+    mùa khô.
+- id: s20
+  title: Dinh dưỡng nằm trong cây sống
+  duration: 10
+  visual: Fallen leaves decay quickly on cracked dry ground, nutrients returning to
+    roots and fungi.
+  narration: Dinh dưỡng nằm trong 390 tỷ cây đang sống, [âm nhạc] không nằm trong
+    đất nghèo mùa khô.
+- id: s21
+  title: Ong lớn thụ phấn chờ quả chín
+  duration: 10
+  visual: A large wild bee visits a Brazil nut flower high in the canopy, pollen dusting
+    its body.
+  narration: Ong lớn thụ phấn cho hoa cây hạt Brazil, quả cần 14 tháng mới chín sau
+    đó.
+- id: s22
+  title: Rễ bạnh giữ kapok khổng lồ
+  duration: 10
+  visual: Wide buttress roots spread around a giant kapok trunk, anchoring it on shallow
+    dry soil.
+  narration: Rễ bạnh giữ cây kapok cao hơn 70 m đứng vững trên đất nông mùa khô.
+- id: s23
+  title: Báo đốm mẹ dẫn con tới nước
+  duration: 10
+  visual: A mother jaguar leads her cub to a shrinking pool, the cub staying close
+    at her side.
+  narration: Báo đốm mẹ dẫn con tới nước, con ở với mẹ tới khoảng 2 năm mới tự lập.
+- id: s24
+  title: Nền rừng nứt nẻ chờ mưa
+  duration: 10
+  visual: Cracked earth stretches across the dry forest floor where floodwater once
+    stood deep.
+  narration: Nước từng dâng 10 đến 15 m mỗi năm, nay nền rừng nứt nẻ chờ mưa trở lại.
+- id: s25
+  title: Mưa mùa khô từ rừng tái chế
+  duration: 10
+  visual: Thin clouds gather over the dry forest, moisture rising from leaves into
+    the afternoon sky.
+  narration: Khô mà rừng vẫn tự làm mưa, tới 70% mưa mùa khô từ độ ẩm rừng tái chế.
+- id: s26
+  title: Đàn macaw giữ nhau bằng tiếng kêu
+  duration: 10
+  visual: A flock of scarlet macaws flies over the dry canopy, calling loudly to stay
+    together.
+  narration: Đàn macaw 10 đến 30 con giữ nhau bằng tiếng kêu lớn giữa rừng khô thưa
+    quả.
+- id: s27
+  title: Cây con chờ bóng râm
+  duration: 10
+  visual: A young Brazil nut seedling waits in deep shade, its leaves still small
+    beneath tall trees.
+  narration: Cây hạt Brazil con chờ trong bóng râm, 14 đến 20 năm mới cho quả đáng
+    kể.
+- id: s28
+  title: Tambaqui kẹt trong vũng cạn
+  duration: 10
+  visual: A tambaqui struggles in a shallow drying pool, its fat reserves carrying
+    it through the drought.
+  narration: Tambaqui tích mỡ mùa lũ, từng phát tán hạt tới 5,4 km, nay kẹt trong
+    vũng cạn.
+- id: s29
+  title: Cuống súng theo mực nước cạn
+  duration: 10
+  visual: A Victoria leaf floats low on a shrinking pool, its long stalk adjusting
+    to the falling water.
+  narration: Cuống súng dài 7 đến 8 m giúp lá nổi theo mực nước cạn, không mắc cạn.
+- id: s30
+  title: Cá dồn về dòng còn lại
+  duration: 10
+  visual: Fish crowd a narrow channel between dry banks, the river system reduced
+    to a few lifelines.
+  narration: Sông có khoảng 1.100 nhánh, cá dồn về dòng còn lại khi các nhánh khô
+    dần.
+- id: s31
+  title: Si đưa rễ xuống đất khô
+  duration: 10
+  visual: A strangler fig sends aerial roots down toward dry soil, its crown reaching
+    for light above.
+  narration: Cây si thả rễ khí sinh xuống đất, vươn tán khoảng 45 m tranh ánh sáng
+    mùa khô.
+- id: s32
+  title: Lười xuống đất dễ bị săn nhất
+  duration: 10
+  visual: A sloth climbs slowly down a trunk to the dry forest floor, exposed in open
+    light.
+  narration: Lười xuống đất khoảng 1 lần mỗi tuần, lúc dễ bị săn nhất trong mùa khô.
+- id: s33
+  title: Rừng khô vẫn trữ carbon
+  duration: 10
+  visual: Tall dry forest stands under a hazy sky, its trees holding carbon through
+    the drought.
+  narration: Rừng khô vẫn trữ khoảng 650 tỷ tấn CO2, [âm nhạc] một kho carbon khổng
+    lồ đang khát nước.
+- id: s34
+  title: Piranha ăn quả rơi khi nước cạn
+  duration: 10
+  visual: A piranha nibbles a fallen fruit in shallow water, surrounded by other fish
+    in a drying pool.
+  narration: Piranha, một trong khoảng 3.000 loài cá, ăn quả rơi khi nước cạn và dọn
+    rừng.
+- id: s35
+  title: Rễ bạnh kapok lan chín mét
+  duration: 10
+  visual: Buttress roots spread wide around a kapok trunk on cracked dry soil.
+  narration: Rễ bạnh kapok lan tới 9 m, giữ cây đứng vững trên đất nông khi đất khô.
+- id: s36
+  title: Hoa súng nở đêm nhốt bọ
+  duration: 10
+  visual: A white Victoria flower opens at night over a shrinking pool, beetles crawling
+    inside.
+  narration: Hoa súng rộng tới 40 cm nở về đêm, nhốt bọ cánh cứng làm sứ giả thụ phấn.
+- id: s37
+  title: Agouti sinh con đã có lông
+  duration: 10
+  visual: A female agouti shelters furry newborns in a dry hollow at the forest edge.
+  narration: Agouti mỗi lứa 1 đến 4 con, con non sinh ra đã có lông và sớm tự kiếm
+    ăn.
+- id: s38
+  title: Mười tám loài chim cùng ăn đất
+  duration: 10
+  visual: Many bird species crowd a clay bank in the dry season, feeding side by side.
+  narration: Vách đất sét có nơi tới 18 loài chim cùng tới, chen nhau ăn muối mùa
+    khô.
+- id: s39
+  title: Quả kapok tung sợi theo gió
+  duration: 10
+  visual: Light kapok fibres drift from an opening fruit capsule, carrying seeds across
+    dry air.
+  narration: Quả kapok tung sợi nhẹ theo gió, thân cây có chu vi hơn 10 m đứng giữa
+    rừng khô.
+- id: s40
+  title: Agouti mang thai hơn ba tháng
+  duration: 10
+  visual: A pregnant agouti forages for fallen seeds in dry leaf litter at dawn.
+  narration: Agouti mang thai 100 đến 120 ngày, sinh con cứng cáp kịp mùa quả sau.
+- id: s41
+  title: Báo đốm bơi săn dưới nước cạn
+  duration: 10
+  visual: A jaguar swims powerfully through shallow water, chasing prey toward the
+    bank.
+  narration: Báo đốm dài hơn 6 feet bơi giỏi, săn cả dưới nước cạn khi thú dồn về
+    vũng.
+- id: s42
+  title: Cây vượt tán hứng nắng mất nước
+  duration: 10
+  visual: Emergent trees rise above the canopy into full sun, their leaves wilting
+    in the heat.
+  narration: Cây vượt tán cao 40 đến 80 m hứng nắng, mất nước nhanh nhất trong mùa
+    khô.
+- id: s43
+  title: Quả hạt Brazil nặng hai kilôgam
+  duration: 10
+  visual: A heavy Brazil nut capsule lies on dry ground, its thick shell protecting
+    seeds inside.
+  narration: Quả hạt Brazil nặng tới 2 kg, vỏ cứng bảo vệ hạt qua mùa khô chờ agouti.
+- id: s44
+  title: Macaw làm tổ tránh nắng
+  duration: 10
+  visual: A scarlet macaw enters a tree hollow high above the dry forest floor.
+  narration: Vẹt macaw đỏ nặng 0,9 đến 1,1 kg làm tổ trong hốc cây, tránh nắng gắt.
+- id: s45
+  title: Sông bay tưới Pantanal
+  duration: 10
+  visual: Invisible moisture streams southward above the dry forest toward distant
+    wetlands.
+  narration: Sông bay góp khoảng 50% lượng mưa cho Pantanal, [âm nhạc] rừng khô vẫn
+    gửi nước đi xa.
+- id: s46
+  title: Độ ẩm rừng mang đi xa
+  duration: 10
+  visual: Clouds drift away from the Amazon canopy, carrying forest moisture toward
+    other lands.
+  narration: Sông bay mang 40 đến 50% độ ẩm rừng tạo ra đi xa, rồi có thể trở lại
+    thành mưa.
+- id: s47
+  title: Anaconda cuộn trong bùn ẩm
+  duration: 10
+  visual: A huge anaconda coils in moist mud at the edge of a drying pool, conserving
+    water.
+  narration: Anaconda nặng hơn 250 kg cuộn trong bùn ẩm, giữ nước chờ mùa lũ trở lại.
+- id: s48
+  title: Si vẫn ra quả mùa khô
+  duration: 10
+  visual: A strangler fig bears fruit in the dry canopy, animals feeding where few
+    trees fruit.
+  narration: Chi Ficus có hơn 850 loài, cây si vẫn ra quả mùa khô nuôi thú rừng.
+- id: s49
+  title: Lông lười ngụy trang như lá
+  duration: 10
+  visual: A sloth hangs motionless in the canopy, its fur blending with dry leaves
+    and algae.
+  narration: Lười dài 50 đến 70 cm, lông ngụy trang như lá, chậm chạp mà khó bị phát
+    hiện.
+- id: s50
+  title: Rừng đã mất mười bảy phần trăm
+  duration: 10
+  visual: A cleared patch scars the edge of dry forest, smoke rising in the distance.
+  narration: Rừng đã mất khoảng 17%, mùa khô làm phần còn lại dễ tổn thương hơn.
+- id: s51
+  title: Várzea thấp khô chờ nước
+  duration: 10
+  visual: Dry várzea forest stands on cracked ground that was once flooded for months.
+  narration: Várzea thấp từng ngập 50 đến 230 ngày mỗi năm, nay khô chờ nước trở lại.
+- id: s52
+  title: Một quả chứa hai mươi bốn hạt
+  duration: 10
+  visual: An opened Brazil nut capsule reveals rows of seeds on dry forest ground.
+  narration: Mỗi quả hạt Brazil chứa 8 đến 24 hạt, chờ agouti mở và chôn gieo cây
+    mới.
+- id: s53
+  title: Cá dồn về kênh sâu
+  duration: 10
+  visual: Fish gather in a deep dark channel, the last refuge as surrounding pools
+    dry out.
+  narration: Cá dồn về kênh sâu tới 150 m ở Itacoatiara, nơi nước còn lại mùa khô.
+- id: s54
+  title: Người đánh cá theo mực nước
+  duration: 10
+  visual: Ribeirinho fishermen work a shrinking river channel, following the falling
+    water level.
+  narration: Hơn 30 triệu người sống trong lưu vực, người đánh cá theo mực nước mùa
+    khô.
+- id: s55
+  title: Thân hạt Brazil đứng qua mùa khô
+  duration: 10
+  visual: A straight Brazil nut trunk stands through many dry seasons, its bark weathered
+    by sun.
+  narration: Thân hạt Brazil đường kính 1 đến 2 m đứng qua nhiều mùa khô không gục
+    ngã.
+- id: s56
+  title: Agouti gieo cây mới mùa khô
+  duration: 10
+  visual: An agouti buries a seed in dry soil, a forgotten cache that may sprout with
+    rain.
+  narration: Agouti mang hạt trung bình 5,0 m, gieo cây mới ngay trong mùa khô.
+- id: s57
+  title: Hạt chờ nước trong ruột cá
+  duration: 10
+  visual: A tambaqui rests in a shallow pool, seeds still intact inside it waiting
+    for rising water.
+  narration: Hạt trong ruột tambaqui tới 1 tuần, chờ nước đưa tới đất mới gieo mầm.
+- id: s58
+  title: Tán thoát hơi nuôi mây
+  duration: 10
+  visual: Water vapour rises from sunlit leaves, forming thin clouds over the dry
+    forest.
+  narration: Mỗi m2 tán thoát 4 đến 4,5 lít nước mỗi ngày, [âm nhạc] nuôi mây cho
+    cơn mưa sắp tới.
+- id: s59
+  title: Cháy rừng thải carbon
+  duration: 10
+  visual: Smoke rises from a forest fire at the dry forest edge, flames spreading
+    through leaf litter.
+  narration: Cháy rừng năm 2024 ước thải khoảng 791 triệu tấn CO2, mùa khô thêm phần
+    nguy hiểm.
+- id: s60
+  title: Mây đầu mùa kéo đến
+  duration: 10
+  visual: Early-season clouds gather over the dry Amazon forest, darkening the sky
+    above cracked earth.
+  narration: Trên rừng rộng 5,5 triệu km2, mây đầu mùa bắt đầu kéo đến trên rừng khô
+    chờ mưa.

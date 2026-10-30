@@ -378,7 +378,11 @@ def parse_gateway_init(html: str) -> dict:
         init = json.loads(seg[j:end])
     except ValueError as e:
         raise GatewayError(f"Không parse được __HATCH_GATEWAY_INIT__: {e}") from None
-    for key in ("gatewayUrl", "vmName", "authToken"):
+    # Chỉ gatewayUrl + vmName là bắt buộc: connect() tự refresh token khi
+    # thiếu (trường hợp acc2 tối 2026-10-30: blob có đủ 2 khóa này nhưng
+    # thiếu authToken — fail cứng ở đây sẽ chặn mất đường refresh đã có
+    # sẵn trong connect()). authToken thiếu thì connect() refresh bù.
+    for key in ("gatewayUrl", "vmName"):
         if not init.get(key):
             raise GatewayError(f"__HATCH_GATEWAY_INIT__ thiếu khóa {key}")
     return init

@@ -1,0 +1,424 @@
+title: Mùa Quả Chín Rừng Amazon
+created_at: '2026-10-30T19:49:49.111985+00:00'
+topic: Rừng Amazon
+kind: documentary
+aspect: '16:9'
+default_voice: narrator
+fps: 30
+scenes:
+- id: s01
+  title: Quả chín rụng xuống nước
+  duration: 10
+  visual: A ripe fruit drops from a flooded forest canopy into dark water, ripples
+    spreading beneath the trees.
+  narration: Quả chín rụng xuống nước, mở ra mùa lũ mới. Điều gì khiến rừng 5,5 triệu
+    km2 không tự gieo mình, mà phải nhờ thú mang hạt?
+- id: s02
+  title: Cá tambaqui tìm quả bằng mùi
+  duration: 10
+  visual: A tambaqui fish swims between submerged tree trunks, nosing toward a fallen
+    fruit in murky floodwater.
+  narration: Dưới tán ngập, cá tambaqui tìm quả rơi bằng mùi, phát tán hạt thường
+    tới 0,5 km theo dòng lũ.
+- id: s03
+  title: Hạt nguyên vẹn trong ruột cá
+  duration: 10
+  visual: Close-up of intact seeds inside a tambaqui, carried through flooded forest
+    as the fish swims on.
+  narration: Trong ruột cá ấy, gần 700.000 hạt còn nguyên vẹn, chờ nước đưa tới đất
+    mới gieo mầm.
+- id: s04
+  title: Hạt igapó nổi theo nước
+  duration: 10
+  visual: Large pale seeds float on black floodwater beneath low igapo canopy, drifting
+    slowly between trunks.
+  narration: Hạt cây igapó nặng trung bình 7,1 g, nổi theo nước dâng tới nơi cây mẹ
+    không bao giờ tới.
+- id: s05
+  title: Hạt várzea trôi theo phù sa
+  duration: 10
+  visual: Small seeds drift in silty white floodwater past várzea trunks, carried
+    toward a distant mudbank.
+  narration: Hạt cây várzea chỉ nặng trung bình 1,2 g, trôi theo phù sa tới đất mới
+    bồi ven sông.
+- id: s06
+  title: Tán várzea ra quả đúng nước cao
+  duration: 10
+  visual: A várzea canopy heavy with ripe fruit stands above floodwater, fruit dropping
+    into the water below.
+  narration: Tán várzea cao tới khoảng 40 m ra quả đúng lúc nước cao, để cá ăn và
+    mang hạt đi.
+- id: s07
+  title: Rừng ngập thành vườn ươm
+  duration: 10
+  visual: Sunlight filters over a vast flooded forest, fish moving between submerged
+    trunks under fruiting trees.
+  narration: Rừng ngập trung tâm rộng hơn 97.000 km2 đón nước, biến lối đi thành kênh
+    rạch gieo hạt.
+- id: s08
+  title: Nước dâng nâng quả tới cá
+  duration: 10
+  visual: Floodwater rises around tree trunks, lifting fallen fruit toward fish swimming
+    through the canopy layer.
+  narration: Nước sông dâng 10 đến 15 m mỗi năm, nâng quả chín tới tầm cá bơi giữa
+    tán cây.
+- id: s09
+  title: Ba nghìn loài cá trong rừng ngập
+  duration: 10
+  visual: Many different fish species feed on fallen fruit in flooded forest, darting
+    between submerged branches.
+  narration: Trong rừng ngập ấy, khoảng 3.000 loài cá nước ngọt cùng ăn quả, cùng
+    gieo lại rừng bằng hạt.
+- id: s10
+  title: Piranha dọn quả rơi
+  duration: 10
+  visual: A red-bellied piranha nibbles fallen fruit in floodwater, cleaning debris
+    beneath a fruiting tree.
+  narration: Cá piranha dài tới 30 cm [âm nhạc] ăn quả rơi khi nước dâng, dọn dẹp
+    rừng ngập thay vì săn mồi.
+- id: s11
+  title: Terra firme không ngập
+  duration: 10
+  visual: A towering Brazil nut tree stands on high dry terra firme ground above the
+    distant floodplain.
+  narration: Trên đất cao terra firme không ngập theo mùa, cây hạt Brazil cao tới
+    50 m chờ quả chín.
+- id: s12
+  title: Thân thẳng vươn khỏi tán
+  duration: 10
+  visual: A straight Brazil nut trunk rises without lower branches, its crown emerging
+    above the forest canopy.
+  narration: Thân cây đường kính 1 đến 2 m, thẳng và không cành suốt hơn nửa chiều
+    cao để vươn sáng.
+- id: s13
+  title: Hoa đậy mũ khó mở
+  duration: 10
+  visual: A large wild bee lifts the hooded petal of a small Brazil nut flower high
+    in the canopy.
+  narration: Trên tán cao 20 đến 40 m, hoa cây đậy kín như mũ, chỉ ong lớn đủ khỏe
+    mở được.
+- id: s14
+  title: Quả cần mười bốn tháng chín
+  duration: 10
+  visual: A green Brazil nut fruit slowly matures on a high branch through changing
+    light and rain.
+  narration: Sau khi ong thụ phấn, quả cần 14 tháng mới chín, một mùa chờ dài giữa
+    tán rừng.
+- id: s15
+  title: Nang gỗ nặng như đá
+  duration: 10
+  visual: A heavy woody Brazil nut capsule falls from the canopy and thuds onto the
+    forest floor.
+  narration: Quả nang rộng 10 đến 15 cm, nặng 2 kg, vỏ dày 8 đến 12 mm khóa hạt bên
+    trong.
+- id: s16
+  title: Hai mươi bốn hạt trong một quả
+  duration: 10
+  visual: An opened Brazil nut capsule reveals rows of large brown seeds packed inside
+    its woody shell.
+  narration: Mỗi quả chứa 8 đến 24 hạt dài 4 đến 5 cm, một kho báu khóa chặt chờ kẻ
+    mở.
+- id: s17
+  title: Quả rơi như đá
+  duration: 10
+  visual: A Brazil nut fruit drops straight down and sinks into leaf litter, unable
+    to float away.
+  narration: Quả nặng 2 kg chìm như đá, không trôi theo nước, nên cây phải nhờ thú
+    mang hạt đi.
+- id: s18
+  title: Agouti gặm mở quả cứng
+  duration: 10
+  visual: An agouti gnaws a small hole in a fallen Brazil nut capsule on the forest
+    floor.
+  narration: Agouti dài 40 đến 65 cm, đủ răng sắc gặm thủng vỏ quả chim và khỉ không
+    mở nổi.
+- id: s19
+  title: Một phần hạt ăn ngay
+  duration: 10
+  visual: An agouti eats Brazil nut seeds beside an opened capsule, scattering shells
+    on the leaf litter.
+  narration: Trong nghiên cứu, khoảng 25% hạt bị agouti ăn ngay, phần còn lại được
+    mang đi chôn giấu.
+- id: s20
+  title: Chôn rải rác thay vì một chỗ
+  duration: 10
+  visual: An agouti digs a shallow hole and buries a Brazil nut seed away from the
+    parent tree.
+  narration: Khoảng 65% hạt bị chôn rải rác trung bình 5,0 m, [âm nhạc] không dồn
+    chung một chỗ dễ mất.
+- id: s21
+  title: Hạt chôn xa gốc cây
+  duration: 10
+  visual: An agouti carries a seed through undergrowth, burying it far from the towering
+    parent tree.
+  narration: Hạt được mang 0,5 đến 28,4 m tính từ gốc, càng xa cây mẹ càng dễ sống
+    sót.
+- id: s22
+  title: Hạt bị quên nảy mầm
+  duration: 10
+  visual: A forgotten buried Brazil nut seed sprouts in dim shade, a small green shoot
+    pushing through litter.
+  narration: Hạt bị quên nảy mầm dưới ánh sáng chỉ 2 đến 5%, cây con chờ khoảng trống
+    sáng.
+- id: s23
+  title: Cây con chờ khoảng trống
+  duration: 10
+  visual: A Brazil nut seedling waits in deep shade until a fallen giant opens a gap
+    of light above.
+  narration: Khi cây lớn đổ xuống, cây con vươn nhanh lên tầng tán cao 20 đến 40 m.
+- id: s24
+  title: Cây sống hàng trăm năm
+  duration: 10
+  visual: A centuries-old Brazil nut giant towers over the canopy, its crown catching
+    sunlight above younger trees.
+  narration: Cây sống 500 năm trở lên, có nguồn ghi tới 1.000 năm, nhờ hai loài nhỏ
+    mở hoa và quả.
+- id: s25
+  title: Mười bốn năm mới cho quả đáng kể
+  duration: 10
+  visual: A young Brazil nut tree grows on terra firme, its first significant fruit
+    appearing after many years.
+  narration: Cây bắt đầu cho thu hoạch đáng kể khi 14 đến 20 năm tuổi, một khởi đầu
+    chậm mà bền.
+- id: s26
+  title: Agouti sinh con đã có lông
+  duration: 10
+  visual: A female agouti nurses furry newborns in a sheltered hollow at the forest
+    edge.
+  narration: Agouti mang thai 100 đến 120 ngày, mỗi lứa 1 đến 4 con, con non sinh
+    ra đã có lông.
+- id: s27
+  title: Agouti chạy trong tầng dưới
+  duration: 10
+  visual: An agouti darts through dim undergrowth, pausing to sniff the ground for
+    buried seeds.
+  narration: Agouti dài 40 đến 65 cm, nặng 2,5 đến 6 kg, chạy nhanh trong tầng dưới
+    tìm hạt chôn.
+- id: s28
+  title: Kẻ săn rình người gieo hạt
+  duration: 10
+  visual: A jaguar waits silently near a fruiting tree, watching an agouti move through
+    the undergrowth.
+  narration: Báo đốm nặng tới 250 pound rình agouti, nhưng chính kẻ bị săn lại gieo
+    rừng cho kẻ săn.
+- id: s29
+  title: Đàn macaw về cây quả chín
+  duration: 10
+  visual: A flock of scarlet macaws lands noisily in a fruiting canopy, calling loudly
+    to stay together.
+  narration: Đàn vẹt macaw đỏ 10 đến 30 con bay về cây quả chín, giữ nhau bằng tiếng
+    kêu lớn.
+- id: s30
+  title: Mỏ khỏe bẻ hạt cứng
+  duration: 10
+  visual: A scarlet macaw cracks a hard seed with its powerful curved beak in the
+    canopy.
+  narration: Vẹt macaw đỏ dài 80 đến 95 cm, nặng 0,9 đến 1,1 kg, dùng mỏ khỏe bẻ hạt
+    cứng.
+- id: s31
+  title: Ăn hạt chưa chín cần muối
+  duration: 10
+  visual: A macaw eats an unripe seed, then flies toward a distant clay bank along
+    the river.
+  narration: Vẹt ăn hạt chưa chín có độc tố, tìm đất sét chứa natri gấp 40 lần thức
+    ăn thực vật.
+- id: s32
+  title: Vách đất sét ven sông
+  duration: 10
+  visual: Hundreds of macaws crowd a steep clay bank beside a western Amazon river
+    at dawn.
+  narration: Hàng trăm con vẹt [âm nhạc] tụ về vách đất sét ven sông phía tây Amazon
+    mỗi ngày ăn đất.
+- id: s33
+  title: Natri gấp bốn mươi lần
+  duration: 10
+  visual: Macaws press their beaks into selected clay layers on a riverbank, eating
+    mineral-rich earth.
+  narration: Lớp đất chim chọn chứa natri gấp khoảng 40 lần thức ăn thực vật, bù thiếu
+    hụt xa biển.
+- id: s34
+  title: Mười tám loài cùng ăn đất
+  duration: 10
+  visual: Many bird species, including macaws, feed together on the same clay wall
+    in the morning light.
+  narration: Có nơi tới 18 loài chim cùng lúc ăn đất sét, chen nhau trên một vách
+    sông hẹp.
+- id: s35
+  title: Mùa sinh sản cần muối hơn
+  duration: 10
+  visual: Parent macaws eat clay at a riverbank, then fly back to a tree hollow nest
+    with chicks inside.
+  narration: Đàn 10 đến 30 con ăn đất nhiều hơn vào mùa sinh sản, khi cần natri nuôi
+    con.
+- id: s36
+  title: Tổ trong hốc cây lớn
+  duration: 10
+  visual: A macaw pair guards chicks inside a large tree hollow high above the forest
+    floor.
+  narration: Vẹt dài 80 đến 95 cm làm tổ trong hốc cây, chim non ở lại tới khi đủ
+    lông bay.
+- id: s37
+  title: Một nghìn ba trăm loài chim
+  duration: 10
+  visual: Flocks of different fruit-eating birds move through the canopy, dropping
+    seeds as they feed.
+  narration: Amazon có khoảng 1.300 loài chim, tức 1 trong 5 loài chim thế giới, cùng
+    ăn quả gieo hạt.
+- id: s38
+  title: Chim mang hạt qua tán
+  duration: 10
+  visual: A fruit-eating bird flies across a canopy gap, a seed dropping from its
+    beak toward the forest floor.
+  narration: Chim bay qua tầng tán cao 20 đến 40 m, thả hạt xuống đất mới xa cây mẹ.
+- id: s39
+  title: Lười ăn lá quả non trên tán
+  duration: 10
+  visual: A three-toed sloth slowly eats young leaves and fruit high in the canopy,
+    algae tinting its fur.
+  narration: Lười dài 50 đến 70 cm, nặng 3 đến 6 kg, ăn lá và quả non chậm trên tán.
+- id: s40
+  title: Lười xuống đất mỗi tuần một lần
+  duration: 10
+  visual: A sloth climbs slowly down a trunk to the forest floor, pausing cautiously
+    in dappled light.
+  narration: Lười xuống đất khoảng 1 lần mỗi tuần, lúc dễ bị săn nhất giữa vòng đời
+    chậm.
+- id: s41
+  title: Si ra quả nhiều lần trong năm
+  duration: 10
+  visual: A strangler fig heavy with small fruit stands in the canopy, birds and mammals
+    feeding around it.
+  narration: Trong ít nhất 150 loài si ở Amazon, quả si ra nhiều lần trong năm cứu
+    đói thú rừng.
+- id: s42
+  title: Bảy mươi phần trăm loài ăn si
+  duration: 10
+  visual: Many animal species feed on fig fruit in one forest patch, sharing branches
+    in the canopy.
+  narration: Trong một số khu rừng, tới khoảng 70% loài động vật được ghi nhận ăn
+    si trong khẩu phần.
+- id: s43
+  title: Ong si chuyên hóa từng loài
+  duration: 10
+  visual: A tiny fig wasp enters a fig syconium, pollinating flowers hidden inside
+    the fruit.
+  narration: Chi Ficus có hơn 850 loài toàn cầu, mỗi loài si thường gắn với một loài
+    ong si riêng.
+- id: s44
+  title: Si vươn tán bốn mươi lăm mét
+  duration: 10
+  visual: A strangler fig rises above its host tree, its crown reaching high into
+    the canopy light.
+  narration: Một số cây si tán cao tới khoảng 45 m, đứng độc lập sau khi cây chủ chết
+    phân hủy.
+- id: s45
+  title: Si làm nhà cho hàng trăm loài
+  duration: 10
+  visual: Insects, reptiles and bats shelter in the hollow trunk and fruiting branches
+    of a strangler fig.
+  narration: Si tạo nơi sống cho hàng trăm loài côn trùng, bò sát, lưỡng cư, gặm nhấm
+    và dơi.
+- id: s46
+  title: Kapok tung hạt theo gió
+  duration: 10
+  visual: Light kapok seeds wrapped in silky fibres drift on the wind from a tall
+    emergent tree.
+  narration: Cây kapok cao 30 đến 40 m, [âm nhạc] hạt bao trong sợi nhẹ bay xa theo
+    gió, ngược hẳn quả nặng.
+- id: s47
+  title: Rễ bạnh giữ cây quả cao
+  duration: 10
+  visual: Buttress roots spread around a kapok trunk, anchoring the tall fruiting
+    tree in shallow soil.
+  narration: Rễ bạnh kapok lan tới 9 m, giữ cây đứng vững trên đất nông khi quả chín
+    nặng trĩu.
+- id: s48
+  title: Thân kapok chu vi hơn mười mét
+  duration: 10
+  visual: A massive kapok trunk with orchids and ferns growing on its branches towers
+    over the canopy.
+  narration: Thân kapok có chu vi hơn 10 m ở cây lớn, tán vượt là nhà của phong lan
+    và chim.
+- id: s49
+  title: Lá súng che cá con
+  duration: 10
+  visual: A giant Victoria water lily leaf shades fish fry in calm floodwater beneath
+    fruiting trees.
+  narration: Lá súng Victoria rộng tới 3 m che mặt nước, giữ bóng râm cho cá con ăn
+    quả rơi.
+- id: s50
+  title: Hoa súng nhốt bọ hai đêm
+  duration: 10
+  visual: A white Victoria flower opens at night, trapping beetles inside until it
+    turns pink the next night.
+  narration: Hoa súng rộng tới 40 cm chỉ sống khoảng 48 giờ, nhốt bọ thụ phấn rồi
+    thả đi.
+- id: s51
+  title: Cuống súng nâng lá theo nước
+  duration: 10
+  visual: A Victoria leaf rises on a long submerged stalk as floodwater levels change
+    around it.
+  narration: Cuống súng dài 7 đến 8 m nâng lá theo nước, lá mở rộng tới 0,5 m mỗi
+    ngày.
+- id: s52
+  title: Mưa hơn hai nghìn mm mỗi năm
+  duration: 10
+  visual: Rain falls through the canopy onto fruiting branches, droplets splashing
+    on leaves and fruit.
+  narration: Rừng nhận mưa thường trên 2.000 mm mỗi năm, nhiệt độ trung bình 24 đến
+    30 độ C.
+- id: s53
+  title: Rừng tự tạo mưa cho mình
+  duration: 10
+  visual: Mist rises from the wet canopy at dawn, forming clouds above the fruiting
+    forest.
+  narration: Rừng tự tạo 30 đến 50% lượng mưa của chính nó, mưa nuôi cây, cây lại
+    ra quả.
+- id: s54
+  title: Tán thoát hơi nuôi mây
+  duration: 10
+  visual: Water vapour rises from sunlit leaves, drifting upward to form clouds over
+    the forest.
+  narration: Mỗi m2 tán thoát 4 đến 4,5 lít nước mỗi ngày, [âm nhạc] tự nuôi mây cho
+    mùa quả sau.
+- id: s55
+  title: Sông bay tưới Pantanal
+  duration: 10
+  visual: Invisible moisture streams southward above the forest, clouds forming over
+    distant wetlands.
+  narration: Sông bay mang hơi nước đi xa, góp khoảng 50% lượng mưa cho vùng Pantanal.
+- id: s56
+  title: Dinh dưỡng nằm trong cây sống
+  duration: 10
+  visual: Fallen fruit and leaves decay quickly on the forest floor, nutrients returning
+    to roots and fungi.
+  narration: Dinh dưỡng nằm trong 390 tỷ cây đang sống, không trong đất nghèo bị rửa
+    trôi.
+- id: s57
+  title: Ba trăm mười loài cây một hecta
+  duration: 10
+  visual: Many tree species fruit at different times in one hectare, animals moving
+    between fruiting crowns.
+  narration: Một hecta rừng có khoảng 310 loài cây, quả chín lệch mùa nên thú luôn
+    có thức ăn.
+- id: s58
+  title: Một nghìn một trăm nhánh sông
+  duration: 10
+  visual: A wide river with many tributaries carries floating seeds past flooded banks
+    toward new land.
+  narration: Sông dài khoảng 6.400 km với khoảng 1.100 nhánh, mang hạt trôi tới đất
+    mới xa.
+- id: s59
+  title: Dòng chảy mang phù sa và hạt
+  duration: 10
+  visual: Strong river currents carry silt and floating seeds downstream through the
+    flooded forest.
+  narration: Sông chảy 215.000 đến 230.000 m3 mỗi giây, mang phù sa và hạt về várzea
+    màu mỡ.
+- id: s60
+  title: Nước bắt đầu rút xuống
+  duration: 10
+  visual: Floodwater slowly recedes from the forest floor, leaving seeds stranded
+    on fresh mudbanks.
+  narration: Trên rừng rộng 5,5 triệu km2, nước bắt đầu rút xuống, hạt nằm lại trên
+    bùn mới chờ mùa sau.

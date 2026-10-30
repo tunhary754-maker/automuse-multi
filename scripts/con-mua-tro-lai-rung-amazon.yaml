@@ -1,0 +1,354 @@
+title: Cơn Mưa Trở Lại Rừng Amazon
+created_at: '2026-10-30T19:52:08.634888+00:00'
+topic: Rừng Amazon
+kind: documentary
+aspect: '16:9'
+default_voice: narrator
+fps: 30
+scenes:
+- id: s01
+  title: Mây đầu mùa trên rừng khô
+  duration: 10
+  visual: Early-season clouds gather over a dry Amazon forest, darkening the sky above
+    cracked earth.
+  narration: Mây đầu mùa bắt đầu kéo đến trên rừng khô. Điều gì đánh thức rừng nhận
+    hơn 2.000 mm mưa mỗi năm sau khô hạn?
+- id: s02
+  title: Sông bay mang hơi nước về
+  duration: 10
+  visual: Invisible moisture streams back over the forest canopy, forming rain clouds
+    above the trees.
+  narration: Sông bay mang hơi nước từ chính rừng về thành mưa, [âm nhạc] rừng tự
+    tạo 30 đến 50% mưa của mình.
+- id: s03
+  title: Mưa đầu tiên xuống tán
+  duration: 10
+  visual: First raindrops fall through the main canopy, splashing on leaves after
+    months of drought.
+  narration: Mưa đầu tiên xuống tầng tán cao 20 đến 40 m, đánh thức rừng sau khô hạn.
+- id: s04
+  title: Kapok nảy lá mới
+  duration: 10
+  visual: A kapok tree sprouts fresh green leaves on bare branches as rain soaks its
+    crown.
+  narration: Cây kapok cao 30 đến 40 m nảy lá mới, xanh lại sau mùa khô rụng lá.
+- id: s05
+  title: Lá đầu nhọn thoát nước
+  duration: 10
+  visual: Rain runs off pointed leaves from emergent trees, dripping down through
+    the canopy to the soil.
+  narration: Lá đầu nhọn thoát nước từ cây vượt tán cao 40 đến 80 m xuống đất ẩm.
+- id: s06
+  title: Rêu hấp thụ nước qua bề mặt
+  duration: 10
+  visual: Moss on a shaded trunk swells with rainwater, absorbing moisture directly
+    through its surface.
+  narration: Rêu nơi ánh sáng chỉ 2 đến 5% hấp thụ nước qua bề mặt, xanh lại sau mưa.
+- id: s07
+  title: Côn trùng bùng nổ trong lá mục
+  duration: 10
+  visual: Insects swarm over wet leaf litter, emerging in huge numbers after the first
+    rain.
+  narration: Côn trùng bùng nổ trong lá mục ẩm, rừng khô bỗng đầy tiếng động sau mưa.
+- id: s08
+  title: Ếch sinh sản trong vũng mưa
+  duration: 10
+  visual: Frogs call and breed in warm rain pools forming on the forest floor.
+  narration: Ếch sinh sản trong vũng mưa ấm 24 đến 30 độ C, tiếng kêu vang khắp rừng
+    ướt.
+- id: s09
+  title: Rêu mọc trên lông lười
+  duration: 10
+  visual: A three-toed sloth hangs in wet canopy, green moss growing thickly on its
+    fur.
+  narration: Lười dài 50 đến 70 cm, rêu mọc trên lông thành ngụy trang xanh giữa tán
+    ướt.
+- id: s10
+  title: Lười ăn lá non sống chậm
+  duration: 10
+  visual: A sloth slowly eats tender young leaves in the rain-washed canopy.
+  narration: Lười nặng 3 đến 6 kg ăn lá non, sống chậm ngay cả khi rừng thức giấc.
+- id: s11
+  title: Đàn macaw bay về tán ướt
+  duration: 10
+  visual: A flock of scarlet macaws flies back into the wet canopy, calling loudly
+    through rain.
+  narration: Đàn macaw 10 đến 30 con bay về tán ướt, giữ nhau bằng tiếng kêu lớn.
+- id: s12
+  title: Macaw tìm đất sét sau mưa
+  duration: 10
+  visual: Macaws eat clay at a wet riverbank after rain, pressing beaks into mineral
+    earth.
+  narration: Đàn vẹt vừa về tán lại tìm đất sét chứa natri gấp 40 lần thức ăn thực
+    vật sau mưa.
+- id: s13
+  title: Mười tám loài chim cùng ăn đất
+  duration: 10
+  visual: Many bird species crowd a clay wall together in the morning after rain.
+  narration: Vách đất sét có nơi tới 18 loài chim cùng tới, chen nhau ăn muối sau
+    mưa.
+- id: s14
+  title: Ong lớn thụ phấn hoa hạt Brazil
+  duration: 10
+  visual: A large wild bee visits a Brazil nut flower high in the wet canopy.
+  narration: Ong lớn thụ phấn cho hoa cây hạt Brazil, quả cần 14 tháng mới chín.
+- id: s15
+  title: Cây hạt Brazil đón mưa trên terra firme
+  duration: 10
+  visual: A tall Brazil nut tree on high terra firme ground catches rain above the
+    floodplain.
+  narration: Cây hạt Brazil cao tới 50 m đón mưa trên terra firme, đất cao không ngập.
+- id: s16
+  title: Cây sống hơn năm trăm năm
+  duration: 10
+  visual: An ancient Brazil nut tree stands through rain, its crown towering over
+    younger trees.
+  narration: Cây hạt Brazil sống 500 năm trở lên, qua bao mùa khô và mùa mưa.
+- id: s17
+  title: Hạt bị quên nảy mầm khi mưa
+  duration: 10
+  visual: An agouti digs in wet soil where a forgotten buried seed sprouts after rain.
+  narration: Agouti chôn 65% hạt, hạt bị quên nảy mầm khi mưa làm đất ẩm lại.
+- id: s18
+  title: Một quả chứa hai mươi bốn hạt
+  duration: 10
+  visual: An opened Brazil nut capsule reveals rows of seeds on wet forest ground.
+  narration: Mỗi quả hạt Brazil chứa 8 đến 24 hạt, chờ mưa để nảy mầm thành cây mới.
+- id: s19
+  title: Si đưa rễ xuống đất ẩm
+  duration: 10
+  visual: A strangler fig sends aerial roots down to moist soil, its crown reaching
+    for light.
+  narration: Cây si thả rễ khí sinh xuống đất ẩm, vươn tán khoảng 45 m tranh ánh sáng.
+- id: s20
+  title: Si ra quả nhiều lần trong năm
+  duration: 10
+  visual: A strangler fig bears fruit in the wet canopy, animals feeding around it.
+  narration: Chi Ficus có hơn 850 loài, cây si ra quả nhiều lần trong năm nuôi thú
+    rừng.
+- id: s21
+  title: Lá súng che cá con khi mưa về
+  duration: 10
+  visual: A giant Victoria leaf shades small fish in calm water after rain returns.
+  narration: Lá súng Victoria rộng tới 3 m [âm nhạc] che cá con khi mưa về, giữ bóng
+    râm.
+- id: s22
+  title: Cuống súng nâng lá theo nước dâng
+  duration: 10
+  visual: A Victoria leaf rises on a long stalk as water levels begin to climb.
+  narration: Cuống súng dài 7 đến 8 m giúp lá nổi theo nước dâng, không bị chìm.
+- id: s23
+  title: Hoa súng nở đêm nhốt bọ
+  duration: 10
+  visual: A white Victoria flower opens at night, beetles crawling inside to pollinate
+    it.
+  narration: Hoa súng rộng tới 40 cm nở về đêm, nhốt bọ cánh cứng làm sứ giả thụ phấn.
+- id: s24
+  title: Lá súng mở rộng mỗi ngày
+  duration: 10
+  visual: A Victoria leaf expands rapidly across the water surface, shading the pool
+    below.
+  narration: Lá súng mở rộng tới 0,5 m mỗi ngày, phủ mặt nước bằng bóng râm mới sau
+    mưa.
+- id: s25
+  title: Tambaqui phát tán hạt về rừng ngập
+  duration: 10
+  visual: A tambaqui swims back into flooded forest, carrying seeds from fallen fruit.
+  narration: Dưới bóng lá súng, cá tambaqui phát tán hạt thường tới 0,5 km, quay lại
+    rừng ngập khi nước dâng.
+- id: s26
+  title: Hạt trong ruột cá chờ nước
+  duration: 10
+  visual: A tambaqui swims through rising water, intact seeds still inside it.
+  narration: Hạt trong ruột cá tambaqui tới 1 tuần, chờ nước đưa tới đất mới gieo
+    mầm.
+- id: s27
+  title: Bảy trăm nghìn hạt nguyên vẹn
+  duration: 10
+  visual: A school of tambaqui moves through flooded forest, seeds intact inside the
+    fish.
+  narration: Trong ruột cá tambaqui, gần 700.000 hạt còn nguyên vẹn, chờ gieo xuống
+    rừng ngập.
+- id: s28
+  title: Piranha ăn quả rơi khi nước dâng
+  duration: 10
+  visual: A piranha nibbles fallen fruit in rising floodwater beneath a fruiting tree.
+  narration: Cá piranha, một trong khoảng 3.000 loài cá, ăn quả rơi khi nước dâng.
+- id: s29
+  title: Anaconda trườn xuống nước dâng
+  duration: 10
+  visual: A green anaconda slides from muddy bank into rising water, disappearing
+    beneath the surface.
+  narration: Trăn anaconda dài tới 9 m trườn xuống nước dâng, ẩn mình chờ mồi ven
+    sông.
+- id: s30
+  title: Báo đốm bơi qua sông dâng
+  duration: 10
+  visual: A jaguar swims powerfully across a rising river, heading for the far bank.
+  narration: Báo đốm nặng tới 250 pound bơi qua sông dâng, săn cả trên cạn và dưới
+    nước.
+- id: s31
+  title: Báo đốm mẹ dẫn con tới sông dâng
+  duration: 10
+  visual: A mother jaguar leads her cub to a rising river, the cub staying close behind.
+  narration: Báo đốm mẹ dẫn con tới sông dâng, con ở với mẹ tới khoảng 2 năm.
+- id: s32
+  title: Tán thoát hơi nuôi mây
+  duration: 10
+  visual: Water vapour rises from sunlit wet leaves, forming clouds over the forest.
+  narration: Mỗi m2 tán thoát 4 đến 4,5 lít nước mỗi ngày, nuôi mây cho mùa mưa sau.
+- id: s33
+  title: Mưa mùa khô từ rừng tái chế
+  duration: 10
+  visual: Thin clouds form over wet canopy, moisture recycled by the forest itself.
+  narration: Nghiên cứu mùa khô cho thấy [âm nhạc] tới 70% mưa mùa khô từ độ ẩm rừng
+    tái chế.
+- id: s34
+  title: Sông bay trở lại thành mưa
+  duration: 10
+  visual: Moisture streams back over the forest and falls as rain on the canopy.
+  narration: Sông bay mang 40 đến 50% độ ẩm đi xa, rồi trở lại thành mưa trên rừng.
+- id: s35
+  title: Sông bay tưới Pantanal
+  duration: 10
+  visual: Clouds drift southward from the Amazon canopy toward distant wetlands.
+  narration: Sông bay góp khoảng 50% lượng mưa cho Pantanal, rừng gửi nước đi xa.
+- id: s36
+  title: Mưa trả lá rụng về đất
+  duration: 10
+  visual: Rain washes fallen leaves onto wet soil, nutrients returning to roots and
+    fungi.
+  narration: Dinh dưỡng nằm trong 390 tỷ cây đang sống, mưa trả lá rụng về đất rừng.
+- id: s37
+  title: Mưa ngấm vào đất mặt
+  duration: 10
+  visual: Rain soaks into the top layer of forest soil, roots drawing water upward
+    to leaves.
+  narration: Mưa ngấm vào 50 cm đất mặt, rễ hút nước nông thoát hơi nuôi tán.
+- id: s38
+  title: Suối khô hồi sinh
+  duration: 10
+  visual: A dry stream bed fills with rainwater, flowing again between forest banks.
+  narration: Sông có khoảng 1.100 nhánh, suối khô hồi sinh khi mưa trở lại.
+- id: s39
+  title: Cá theo nước mưa về hạ lưu
+  duration: 10
+  visual: Fish swim downstream through rain-swollen channels toward the main river.
+  narration: Sông dài khoảng 6.400 km, cá theo nước mưa về hạ lưu tìm nước sâu.
+- id: s40
+  title: Sông trung lưu mở rộng trở lại
+  duration: 10
+  visual: A mid-river channel widens as rainwater returns, banks disappearing under
+    rising water.
+  narration: Sông trung lưu rộng trung bình 3 km mở rộng trở lại khi mưa về.
+- id: s41
+  title: Dòng chảy mạnh trở lại
+  duration: 10
+  visual: A powerful river current flows past forest banks, carrying rainwater downstream.
+  narration: Sông chảy 215.000 đến 230.000 m3 mỗi giây, mang nước mưa về hạ lưu.
+- id: s42
+  title: Kênh sâu lấp đầy cho cá trú ẩn
+  duration: 10
+  visual: Deep river channels fill with water, fish sheltering in the dark depths.
+  narration: Sông hạ lưu sâu trung bình 20 đến 50 m, kênh sâu lấp đầy cho cá trú ẩn.
+- id: s43
+  title: Tán várzea ra quả đúng nước cao
+  duration: 10
+  visual: A várzea canopy heavy with fruit stands above rising water, fruit dropping
+    to fish.
+  narration: Tán várzea cao tới khoảng 40 m ra quả đúng lúc nước cao cho cá ăn.
+- id: s44
+  title: Várzea thấp đón nước trở lại
+  duration: 10
+  visual: Water returns to low várzea forest, flooding the ground between trunks.
+  narration: Várzea thấp ngập 50 đến 230 ngày mỗi năm, nước bắt đầu trở lại sau mưa.
+- id: s45
+  title: Hạt igapó nổi theo nước dâng
+  duration: 10
+  visual: Large seeds float on rising black water beneath low igapo canopy.
+  narration: Hạt cây igapó nặng trung bình 7,1 g, nổi theo nước dâng tới đất mới.
+- id: s46
+  title: Rừng ngập trung tâm đón nước
+  duration: 10
+  visual: Vast flooded forest fills with water, channels forming between submerged
+    trunks.
+  narration: Rừng ngập trung tâm rộng hơn 97.000 km2 đón nước, lối đi thành kênh rạch.
+- id: s47
+  title: Nước sông dâng trở lại
+  duration: 10
+  visual: River water rises around tree trunks, lifting debris and fruit toward the
+    canopy layer.
+  narration: Nước sông dâng 10 đến 15 m mỗi năm, [âm nhạc] bắt đầu trở lại sau cơn
+    mưa.
+- id: s48
+  title: Người đánh cá theo nước dâng
+  duration: 10
+  visual: Ribeirinho fishermen work a rising river channel, following the water level.
+  narration: Hơn 30 triệu người sống trong lưu vực, người ribeirinho đánh cá theo
+    nước dâng.
+- id: s49
+  title: Rừng đã mất mười bảy phần trăm
+  duration: 10
+  visual: Rain falls on a forest edge scarred by clearing, the remaining trees still
+    green.
+  narration: Rừng đã mất khoảng 17%, mưa trở lại vẫn làm phần còn lại dễ tổn thương.
+- id: s50
+  title: Mưa làm quang hợp mạnh lại
+  duration: 10
+  visual: Sunlight and rain revive photosynthesis in wet canopy leaves, the forest
+    greening rapidly.
+  narration: Cây hấp thụ 2 đến 2,4 tỷ tấn CO2 mỗi năm, mưa làm quang hợp mạnh lại.
+- id: s51
+  title: Rễ bạnh kapok giữ cây khi nước dâng
+  duration: 10
+  visual: Buttress roots spread around a kapok trunk as water rises around its base.
+  narration: Rễ bạnh kapok lan tới 9 m, giữ cây đứng vững khi nước dâng quanh gốc.
+- id: s52
+  title: Kapok non cao thêm bốn mét
+  duration: 10
+  visual: A young kapok sapling grows rapidly in a rain-soaked light gap.
+  narration: Cây kapok non cao thêm tới 4 m trong một năm, vươn nhanh sau mưa.
+- id: s53
+  title: Thú rừng ăn si khi mưa về
+  duration: 10
+  visual: Many animals feed on fig fruit in a wet forest patch after rain.
+  narration: Trong một số khu rừng, tới khoảng 70% loài động vật ăn si khi mưa về.
+- id: s54
+  title: Macaw làm tổ mùa mưa
+  duration: 10
+  visual: A scarlet macaw enters a tree hollow high above wet forest floor.
+  narration: Vẹt macaw đỏ dài 80 đến 95 cm làm tổ trong hốc cây mùa mưa.
+- id: s55
+  title: Agouti mang thai hơn ba tháng
+  duration: 10
+  visual: A pregnant agouti forages for seeds in wet leaf litter after rain.
+  narration: Agouti mang thai 100 đến 120 ngày, sinh con cứng cáp trong mùa mưa.
+- id: s56
+  title: Agouti gieo cây mới khi đất ẩm
+  duration: 10
+  visual: An agouti buries a seed in moist soil, a forgotten cache sprouting with
+    rain.
+  narration: Agouti mang hạt 0,5 đến 28,4 m, gieo cây mới khi đất ẩm sau mưa.
+- id: s57
+  title: Lười xuống đất trên nền ẩm trơn
+  duration: 10
+  visual: A sloth climbs slowly down a wet trunk to slippery forest floor.
+  narration: Lười xuống đất khoảng 1 lần mỗi tuần, trên nền ẩm trơn sau mưa.
+- id: s58
+  title: Anaconda rời bùn xuống nước dâng
+  duration: 10
+  visual: A huge anaconda leaves moist mud and slides into rising water.
+  narration: Anaconda nặng hơn 250 kg rời bùn, xuống nước dâng tìm mồi.
+- id: s59
+  title: Hoa súng tự làm nóng thu hút bọ
+  duration: 10
+  visual: A Victoria flower glows warm at night, beetles gathering to its heat and
+    scent.
+  narration: Hoa súng tự làm nóng hơn xung quanh tới 10 độ C, [âm nhạc] thu hút bọ
+    thụ phấn.
+- id: s60
+  title: Nước bắt đầu dâng lên
+  duration: 10
+  visual: Water slowly rises over the forest floor, submerging roots and opening a
+    new season.
+  narration: Trên rừng rộng 5,5 triệu km2, nước bắt đầu dâng lên, mở ra mùa mới.

@@ -1,0 +1,366 @@
+title: Mùa Lũ Rừng Amazon
+created_at: '2026-10-30T19:49:08.023322+00:00'
+topic: Rừng Amazon
+kind: documentary
+aspect: '16:9'
+default_voice: narrator
+fps: 30
+scenes:
+- id: s01
+  title: Nước bắt đầu dâng lên
+  duration: 10
+  visual: Water begins rising over the forest floor, turning dry ground into a slow
+    river.
+  narration: Trên rừng rộng 5,5 triệu km2, nước bắt đầu dâng lên, mở ra mùa mới. Điều
+    gì khiến nước dâng biến rừng thành sông, nơi cá ăn quả giữa tán?
+- id: s02
+  title: Nước sông dâng nhấn chìm nền rừng
+  duration: 10
+  visual: River water rises around tree trunks, submerging the forest floor beneath
+    murky water.
+  narration: Nước sông dâng 10 đến 15 m mỗi năm, nhấn chìm nền rừng thành thế giới
+    nước.
+- id: s03
+  title: Várzea thấp ngập mà tán vẫn vươn
+  duration: 10
+  visual: Low várzea trees stand in deep floodwater, their crowns still reaching above
+    the surface.
+  narration: Várzea thấp ngập 50 đến 230 ngày mỗi năm, tán vẫn vươn trên mặt nước.
+- id: s04
+  title: Tán várzea ra quả đúng nước cao
+  duration: 10
+  visual: A várzea canopy heavy with fruit stands above floodwater, fruit dropping
+    to fish below.
+  narration: Tán várzea cao tới khoảng 40 m ra quả đúng lúc nước cao, để cá ăn quả
+    dưới tán.
+- id: s05
+  title: Igapó trong nước đen nghèo dinh dưỡng
+  duration: 10
+  visual: Low igapo trees stand in dark nutrient-poor black water, sparse canopy above.
+  narration: Rừng igapó tán trung bình 20 đến 25 m, sống trong nước đen nghèo dinh
+    dưỡng.
+- id: s06
+  title: Cây igapó chìm tới sáu tháng
+  duration: 10
+  visual: Igapó trees stand submerged for months, only crowns visible above dark water.
+  narration: Cây igapó chìm trong nước tới 6 tháng, chờ nước rút mới thở lại.
+- id: s07
+  title: Rừng ngập trung tâm thành kênh rạch
+  duration: 10
+  visual: Vast flooded forest fills with water, former paths becoming winding channels.
+  narration: Rừng ngập trung tâm rộng hơn 97.000 km2 đón nước, lối đi thành kênh rạch
+    mới.
+- id: s08
+  title: Sông mang phù sa từ Andes
+  duration: 10
+  visual: A powerful river current carries pale silt downstream from the Andes toward
+    the forest.
+  narration: Sông chảy 215.000 đến 230.000 m3 mỗi giây, mang phù sa từ Andes về rừng.
+- id: s09
+  title: Sông trung lưu mang phù sa trắng
+  duration: 10
+  visual: Silty white floodwater flows past várzea trunks, depositing rich sediment.
+  narration: Sông trung lưu rộng trung bình 3 km mang phù sa trắng về várzea.
+- id: s10
+  title: Cá bơi giữa tán cây
+  duration: 10
+  visual: Fish swim between submerged tree trunks and branches in flooded forest.
+  narration: Cá bơi giữa tán cây, [âm nhạc] một trong khoảng 3.000 loài cá nước ngọt
+    Amazon.
+- id: s11
+  title: Tambaqui tìm quả rơi bằng mùi
+  duration: 10
+  visual: A tambaqui noses toward fallen fruit in murky floodwater between trunks.
+  narration: Cá tambaqui tìm quả rơi bằng mùi, phát tán hạt thường tới 0,5 km.
+- id: s12
+  title: Hạt trong ruột cá chờ nước
+  duration: 10
+  visual: A tambaqui swims through flooded forest, intact seeds still inside it.
+  narration: Hạt ở trong ruột cá tambaqui tới khoảng 1 tuần, chờ nước đưa tới đất
+    mới gieo mầm.
+- id: s13
+  title: Bảy trăm nghìn hạt nguyên vẹn
+  duration: 10
+  visual: A school of tambaqui moves through flooded forest, seeds intact inside the
+    fish.
+  narration: Trong ruột cá ấy, gần 700.000 hạt còn nguyên vẹn, chờ gieo xuống rừng
+    ngập khi nước dâng.
+- id: s14
+  title: Một phần nhỏ cá phát tán xa
+  duration: 10
+  visual: A few tambaqui swim far downstream through flooded channels, carrying seeds
+    with them.
+  narration: Khoảng 5% số cá tambaqui dự đoán phát tán hạt 1,7 đến 2,1 km theo dòng
+    lũ.
+- id: s15
+  title: Tambaqui phát tán hạt tối đa
+  duration: 10
+  visual: A tambaqui swims a long distance through flooded forest, seeds travelling
+    with it.
+  narration: Cá tambaqui phát tán hạt tối đa 5,4 km theo dòng lũ tới đất mới.
+- id: s16
+  title: Hạt igapó nổi theo nước dâng
+  duration: 10
+  visual: Large seeds float on black floodwater beneath low igapo canopy.
+  narration: Hạt cây igapó nặng trung bình 7,1 g, nổi theo nước dâng tới đất mới.
+- id: s17
+  title: Hạt várzea trôi theo phù sa
+  duration: 10
+  visual: Small seeds drift in silty white water past várzea trunks toward a mudbank.
+  narration: Hạt cây várzea nặng trung bình 1,2 g, trôi theo phù sa tới đất mới.
+- id: s18
+  title: Piranha ăn quả rơi khi nước dâng
+  duration: 10
+  visual: A red-bellied piranha nibbles fallen fruit in floodwater beneath a fruiting
+    tree.
+  narration: Cá piranha dài tới 30 cm ăn quả rơi khi nước dâng, dọn dẹp rừng ngập.
+- id: s19
+  title: Đàn cá kiếm ăn trong rừng chìm
+  duration: 10
+  visual: Schools of fish feed among submerged branches in flooded forest.
+  narration: Một trong khoảng 3.000 loài cá, đàn cá kiếm ăn trong rừng chìm khi nước
+    cao.
+- id: s20
+  title: Anaconda trườn trong nước ngập
+  duration: 10
+  visual: A green anaconda glides through flooded forest water, hidden among submerged
+    trunks.
+  narration: Trăn anaconda dài tới 9 m [âm nhạc] trườn trong nước ngập, chờ mồi ven
+    cây.
+- id: s21
+  title: Anaconda siết mồi trong nước ngập
+  duration: 10
+  visual: A huge anaconda coils around prey in shallow floodwater near a tree.
+  narration: Anaconda nặng hơn 250 kg siết mồi trong nước ngập, săn phục kích ven
+    cây.
+- id: s22
+  title: Báo đốm bơi qua rừng ngập
+  duration: 10
+  visual: A jaguar swims powerfully through flooded forest, heading for a tree island.
+  narration: Báo đốm nặng tới 250 pound bơi qua rừng ngập, săn cả trên cạn và dưới
+    nước.
+- id: s23
+  title: Báo đốm mẹ dẫn con tới rừng ngập
+  duration: 10
+  visual: A mother jaguar leads her cub through flooded forest, the cub swimming close
+    behind.
+  narration: Báo đốm mẹ dẫn con tới rừng ngập, con ở với mẹ tới khoảng 2 năm.
+- id: s24
+  title: Lười ở tán cao tránh nước dâng
+  duration: 10
+  visual: A three-toed sloth hangs high in the canopy above floodwater, eating leaves
+    slowly.
+  narration: Tránh nước dâng dưới nền rừng, lười dài 50 đến 70 cm ở trên tán cao.
+- id: s25
+  title: Lười sống chậm qua mùa nước dâng
+  duration: 10
+  visual: A sloth eats leaves slowly high in the canopy while floodwater spreads below.
+  narration: Trên tán cao tránh lũ, lười 3 đến 6 kg ăn lá, sống chậm suốt mùa nước
+    dâng.
+- id: s26
+  title: Đàn macaw bay trên rừng ngập
+  duration: 10
+  visual: A flock of scarlet macaws flies over flooded forest, calling loudly to stay
+    together.
+  narration: Đàn vẹt macaw đỏ 10 đến 30 con bay trên rừng ngập, giữ nhau bằng tiếng
+    kêu lớn xuyên tán nước.
+- id: s27
+  title: Macaw làm tổ trên mặt nước dâng
+  duration: 10
+  visual: A scarlet macaw enters a tree hollow high above floodwater.
+  narration: Dài 80 đến 95 cm, vẹt macaw đỏ làm tổ trong hốc cây, treo nôi chim non
+    trên mặt nước dâng.
+- id: s28
+  title: Vẹt tìm đất sét ven sông ngập
+  duration: 10
+  visual: Macaws eat clay at a flooded riverbank, pressing beaks into mineral earth.
+  narration: Ven sông ngập, vẹt tìm đất sét chứa natri gấp 40 lần thức ăn thực vật,
+    thứ quả rừng không cho nó.
+- id: s29
+  title: Lá súng che cá con trong lũ
+  duration: 10
+  visual: A giant Victoria leaf shades small fish in calm floodwater.
+  narration: Lá súng Victoria rộng tới 3 m [âm nhạc] che mặt nước ngập, giữ bóng râm
+    cho cá con trú ẩn.
+- id: s30
+  title: Cuống súng nâng lá theo nước dâng
+  duration: 10
+  visual: A Victoria leaf rises on a long stalk as floodwater climbs around it.
+  narration: Cuống súng dài 7 đến 8 m nâng lá theo nước dâng, không để lũ nhấn chìm
+    chiếc bè xanh ấy.
+- id: s31
+  title: Hoa súng nở đêm nhốt bọ
+  duration: 10
+  visual: A white Victoria flower opens at night over floodwater, beetles crawling
+    inside.
+  narration: Hoa súng rộng tới 40 cm nở về đêm, nhốt bọ cánh cứng làm sứ giả mang
+    phấn cho hoa khác.
+- id: s32
+  title: Lá súng mở rộng mỗi ngày trong lũ
+  duration: 10
+  visual: A Victoria leaf expands rapidly across floodwater, shading the surface below.
+  narration: Lá súng mở rộng tới 0,5 m mỗi ngày, phủ mặt nước ngập bằng bóng râm mới
+    cho cá con.
+- id: s33
+  title: Kapok vươn tán trên mặt nước
+  duration: 10
+  visual: A tall kapok tree rises above floodwater, its crown catching sunlight.
+  narration: Cây kapok cao 30 đến 40 m vươn tán trên mặt nước, rễ bạnh giữ cây đứng
+    trong lũ.
+- id: s34
+  title: Rễ bạnh kapok giữ cây trong lũ
+  duration: 10
+  visual: Wide buttress roots spread around a kapok trunk in floodwater.
+  narration: Rễ bạnh kapok lan tới 9 m, giữ cây đứng vững trên đất nông khi nước dâng
+    quanh gốc.
+- id: s35
+  title: Thân kapok lớn giữa rừng ngập
+  duration: 10
+  visual: A massive kapok trunk stands in seasonal floodwater, branches above the
+    surface.
+  narration: Thân kapok có chu vi hơn 10 m, đứng vững giữa rừng ngập theo mùa như
+    một cột trụ.
+- id: s36
+  title: Cây si đưa rễ xuống đất ngập
+  duration: 10
+  visual: A strangler fig sends aerial roots down toward flooded soil, crown reaching
+    for light.
+  narration: Cây si thả rễ khí sinh xuống đất ngập, vươn tán khoảng 45 m tranh ánh
+    sáng trên rừng lũ.
+- id: s37
+  title: Si ra quả nhiều lần trong năm
+  duration: 10
+  visual: A strangler fig bears fruit in flooded canopy, animals feeding around it.
+  narration: Chi Ficus có hơn 850 loài, cây si ra quả nhiều lần trong năm nuôi thú
+    rừng.
+- id: s38
+  title: Thú rừng ăn si khi nước dâng
+  duration: 10
+  visual: Many animals feed on fig fruit in a flooded forest patch.
+  narration: Trong một số khu rừng, tới khoảng 70% loài động vật ăn si khi nước dâng.
+- id: s39
+  title: Cây hạt Brazil trên terra firme
+  duration: 10
+  visual: A tall Brazil nut tree stands on high dry terra firme ground above the floodplain.
+  narration: Cây hạt Brazil cao tới 50 m trên terra firme, đất cao không ngập theo
+    mùa.
+- id: s40
+  title: Cây hạt Brazil sống hàng trăm năm
+  duration: 10
+  visual: An ancient Brazil nut tree towers over the forest, crown above floodwater
+    far below.
+  narration: Cây hạt Brazil sống 500 năm trở lên, qua bao mùa lũ và mùa khô.
+- id: s41
+  title: Ong lớn thụ phấn hoa hạt Brazil
+  duration: 10
+  visual: A large wild bee visits a Brazil nut flower high in the canopy.
+  narration: Ong lớn thụ phấn cho hoa cây hạt Brazil giữa tán cao, quả cần 14 tháng
+    mới chín.
+- id: s42
+  title: Agouti chôn hạt trên đất cao
+  duration: 10
+  visual: An agouti buries a seed in dry leaf litter on high ground above the flood.
+  narration: Agouti chôn rải rác 65% hạt nó mở, giấu hạt trên đất cao chờ mưa.
+- id: s43
+  title: Một quả chứa hai mươi bốn hạt
+  duration: 10
+  visual: An opened Brazil nut capsule reveals rows of seeds on forest ground.
+  narration: Mỗi quả hạt Brazil chứa 8 đến 24 hạt, cây con chờ nhiều năm trong bóng
+    râm.
+- id: s44
+  title: Rêu giữ ẩm tầng dưới trong lũ
+  duration: 10
+  visual: Moss carpets a shaded trunk in dim understorey light above floodwater.
+  narration: Rêu nơi ánh sáng chỉ 2 đến 5% hấp thụ nước qua bề mặt, giữ ẩm tầng dưới
+    trong lũ.
+- id: s45
+  title: Tầng tán chính che nắng giữ ẩm
+  duration: 10
+  visual: Dense main canopy shades flooded forest, cool damp air below.
+  narration: Tầng tán chính cao 20 đến 40 m che nắng, giữ ẩm trong lũ cho tầng dưới.
+- id: s46
+  title: Cây vượt tán rễ nông giữ cây
+  duration: 10
+  visual: Emergent trees rise above flooded canopy, shallow roots anchoring them in
+    wet soil.
+  narration: Cây vượt tán cao 40 đến 80 m, rễ nông giữ cây đứng vững trong lũ.
+- id: s47
+  title: Kênh sâu cho cá trú ẩn trong lũ
+  duration: 10
+  visual: Fish gather in a deep dark channel beneath flooded forest.
+  narration: Sông hạ lưu sâu trung bình 20 đến 50 m, [âm nhạc] kênh sâu cho cá trú
+    ẩn trong lũ.
+- id: s48
+  title: Cá theo lũ vào rừng ngập rồi rút
+  duration: 10
+  visual: Fish swim into flooded forest with rising water, then retreat to channels.
+  narration: Sông có khoảng 1.100 nhánh, cá theo lũ vào rừng ngập rồi rút về kênh.
+- id: s49
+  title: Người đánh cá theo nước dâng
+  duration: 10
+  visual: Ribeirinho fishermen work a flooded river channel, following the rising
+    water.
+  narration: Hơn 30 triệu người sống trong lưu vực, người ribeirinho đánh cá theo
+    nước dâng.
+- id: s50
+  title: Rừng đã mất mười bảy phần trăm
+  duration: 10
+  visual: Rain falls on flooded forest edge scarred by clearing, remaining trees still
+    green.
+  narration: Rừng đã mất khoảng 17%, lũ về vẫn làm phần còn lại dễ tổn thương.
+- id: s51
+  title: Cây hấp thụ carbon trong lũ
+  duration: 10
+  visual: Sunlight and floodwater revive photosynthesis in wet canopy leaves.
+  narration: Cây hấp thụ 2 đến 2,4 tỷ tấn CO2 mỗi năm, lũ nuôi quang hợp mạnh lại.
+- id: s52
+  title: Rừng ngập trữ carbon
+  duration: 10
+  visual: Tall flooded forest stands under hazy sky, trees holding carbon through
+    the flood.
+  narration: Rừng ngập trữ khoảng 650 tỷ tấn CO2, một kho carbon khổng lồ trong nước.
+- id: s53
+  title: Phía tây Amazon dâng sáu đến chín mét
+  duration: 10
+  visual: Floodwater rises around western Amazon trees, submerging low ground.
+  narration: Phía tây Amazon nước dâng 6 đến 9 m, rừng ngập thấp chìm trong lũ.
+- id: s54
+  title: Nhánh phía nam dâng mười hai đến mười lăm mét
+  duration: 10
+  visual: Southern tributaries swell high around forest trunks, water reaching the
+    canopy layer.
+  narration: Nhánh phía nam dâng trung bình 12 đến 15 m, nước ngập sâu vào rừng.
+- id: s55
+  title: Rừng ngập tới hai trăm mười ngày
+  duration: 10
+  visual: Flooded trees stand in water for months, adapted to long submersion.
+  narration: Rừng ngập tới 210 ngày mỗi năm, cây thích nghi dưới nước chờ rút.
+- id: s56
+  title: Một hecta ba trăm mười loài cây chịu ngập
+  duration: 10
+  visual: Many different tree species stand together in floodwater, each coping differently.
+  narration: Một hecta rừng có khoảng 310 loài cây, mỗi loài chịu ngập theo cách khác
+    nhau.
+- id: s57
+  title: Dinh dưỡng nằm trong cây sống
+  duration: 10
+  visual: Fallen leaves decay in floodwater, nutrients returning to roots and fungi.
+  narration: Dinh dưỡng nằm trong 390 tỷ cây đang sống, lũ trả lá rụng về đất rừng.
+- id: s58
+  title: Tán thoát hơi nuôi mây cho mùa sau
+  duration: 10
+  visual: Water vapour rises from sunlit wet leaves, forming clouds over flooded forest.
+  narration: Mỗi m2 tán thoát 4 đến 4,5 lít nước mỗi ngày, [âm nhạc] nuôi mây cho
+    mùa lũ sau.
+- id: s59
+  title: Sông bay trở lại thành mưa lũ
+  duration: 10
+  visual: Moisture streams back over flooded forest and falls as rain on the canopy.
+  narration: Sông bay mang 40 đến 50% độ ẩm đi xa, rồi trở lại thành mưa lũ.
+- id: s60
+  title: Quả chín rụng xuống nước
+  duration: 10
+  visual: Ripe fruit drops from a flooded canopy into dark water, ripples spreading
+    beneath trees.
+  narration: Trên rừng rộng 5,5 triệu km2, quả chín rụng xuống nước, mở ra mùa lũ
+    mới.

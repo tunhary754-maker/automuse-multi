@@ -126,6 +126,34 @@ class TestBootstrap(unittest.TestCase):
         with self.assertRaises(gw.GatewayError):
             gw.parse_gateway_init("<html>no init here</html>")
 
+    def test_parse_gateway_init_missing_auth_token_ok(self):
+        """Blob thiếu authToken vẫn parse được — connect() sẽ tự refresh
+        bù (trường hợp acc2 tối 2026-10-30: blob có gatewayUrl + vmName
+        nhưng thiếu authToken, trước đây parser fail cứng chặn mất đường
+        refresh)."""
+        init = {
+            "version": 1,
+            "gatewayUrl": "wss://11111111-2222-3333-4444-555555555555.metaaivm.com/",
+            "vmName": "11111111-2222-3333-4444-555555555555",
+        }
+        inner = json.dumps({"x": "window.__HATCH_GATEWAY_INIT__=" + json.dumps(init)})
+        html = "<html><script>self.__next_f.push([1," + json.dumps(inner) + "])</script></html>"
+        parsed = gw.parse_gateway_init(html)
+        self.assertEqual(parsed["gatewayUrl"], init["gatewayUrl"])
+        self.assertIsNone(parsed.get("authToken"))
+
+    def test_parse_gateway_init_missing_gateway_url_raises(self):
+        """Thiếu gatewayUrl hoặc vmName vẫn fail — refresh cần 2 khóa này
+        nên parser vẫn phải giữ chúng bắt buộc."""
+        for init in (
+            {"vmName": "11111111-2222-3333-4444-555555555555"},
+            {"gatewayUrl": "wss://11111111-2222-3333-4444-555555555555.metaaivm.com/"},
+        ):
+            inner = json.dumps({"x": "window.__HATCH_GATEWAY_INIT__=" + json.dumps(init)})
+            html = "<html><script>self.__next_f.push([1," + json.dumps(inner) + "])</script></html>"
+            with self.assertRaises(gw.GatewayError):
+                gw.parse_gateway_init(html)
+
     def test_fetch_init_missing_blob_hints_expired_cookie(self):
         """Trang chủ 200 nhưng không có blob -> lỗi phải gợi ý kiểm tra
         cookie (đã xác minh: cookie sống trả 200 + blob; cookie chết thì
